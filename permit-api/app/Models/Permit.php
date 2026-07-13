@@ -1,0 +1,185 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class Permit extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'nomor_izin',
+        'screening_id',
+        'permit_type_id',
+        'wo_id',
+        'equipment_id',
+        'performing_authority_id',
+        'approval_authority_id',
+        'issuing_authority_id',
+        'lokasi',
+        'deskripsi_pekerjaan',
+        'durasi',
+        'nomor_jsa',
+        'tingkat_risiko',
+        'bahaya_lainnya',
+        'status',
+        'tgl_terbit',
+        'tgl_kadaluarsa',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'tgl_terbit' => 'datetime',
+            'tgl_kadaluarsa' => 'datetime',
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------
+    | Relasi ke master data & referensi
+    |--------------------------------------------------------------------
+    */
+
+    public function permitType(): BelongsTo
+    {
+        // Jenis utama (jenis pertama). Dipertahankan untuk kompatibilitas data lama.
+        return $this->belongsTo(PermitType::class);
+    }
+
+    /**
+     * STEP 25 — Satu izin dapat mencakup beberapa jenis izin sekaligus
+     * (mis. Hot Work + Work at Height). Ini sumber kebenarannya.
+     */
+    public function permitTypes(): BelongsToMany
+    {
+        return $this->belongsToMany(PermitType::class, 'permit_permit_type');
+    }
+
+    public function screening(): BelongsTo
+    {
+        return $this->belongsTo(Screening::class);
+    }
+
+    public function workOrder(): BelongsTo
+    {
+        return $this->belongsTo(WorkOrder::class, 'wo_id');
+    }
+
+    public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(Equipment::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------
+    | Relasi ke pemegang peran (PA / AA / IA)
+    |--------------------------------------------------------------------
+    */
+
+    public function performingAuthority(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'performing_authority_id');
+    }
+
+    public function approvalAuthority(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approval_authority_id');
+    }
+
+    public function issuingAuthority(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'issuing_authority_id');
+    }
+
+    /*
+    |--------------------------------------------------------------------
+    | Relasi anak (satu izin punya banyak dokumen pendukung)
+    |--------------------------------------------------------------------
+    */
+
+    public function personnel(): HasMany
+    {
+        return $this->hasMany(PermitPersonnel::class);
+    }
+
+    public function psbForms(): HasMany
+    {
+        return $this->hasMany(PsbForm::class);
+    }
+
+    public function jsaReferences(): HasMany
+    {
+        return $this->hasMany(JsaReference::class);
+    }
+
+    public function hazards(): HasMany
+    {
+        return $this->hasMany(Hazard::class);
+    }
+
+    public function gasTests(): HasMany
+    {
+        return $this->hasMany(GasTest::class);
+    }
+
+    /**
+     * Uji gas terbaru untuk izin ini (dipakai validasi timer 12/72 jam).
+     */
+    public function latestGasTest(): HasOne
+    {
+        return $this->hasOne(GasTest::class)->latestOfMany('tanggal');
+    }
+
+    public function certificates(): HasMany
+    {
+        return $this->hasMany(Certificate::class);
+    }
+
+    public function safetyOverrides(): HasMany
+    {
+        return $this->hasMany(SafetyOverride::class);
+    }
+
+    public function revalidations(): HasMany
+    {
+        return $this->hasMany(Revalidation::class);
+    }
+
+    public function liveAudits(): HasMany
+    {
+        return $this->hasMany(LiveAudit::class);
+    }
+
+    public function standbyLogs(): HasMany
+    {
+        return $this->hasMany(StandbyLog::class);
+    }
+
+    public function statusHistories(): HasMany
+    {
+        return $this->hasMany(PermitStatusHistory::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------
+    | Scopes bantu query
+    |--------------------------------------------------------------------
+    */
+
+    public function scopeStatus($query, string $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    public function scopeAktif($query)
+    {
+        return $query->where('status', 'aktif');
+    }
+}

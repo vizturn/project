@@ -1,0 +1,434 @@
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit } from "../services/permitService";
+import { getPsbTypes } from "../services/masterService";
+import { useAuth } from "../context/AuthContext";
+import StatusBadge from "../components/StatusBadge";
+import HazardForm from "../components/HazardForm";
+import { submitHazards, reviewHazards } from "../services/hazardService";
+import { toast } from "sonner";
+import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck } from "lucide-react";
+
+export default function PermitDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user, hasRole } = useAuth();
+
+  const [permit, setPermit] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  // state form approval & gas test
+  const [psbTypes, setPsbTypes] = useState([]);
+  const [selectedPsb, setSelectedPsb] = useState({}); // { [permitTypeId]: { [psbTypeId]: true } }
+  const [alasan, setAlasan] = useState("");
+  const [gas, setGas] = useState({ oksigen_persen: "", lel_persen: "", co_ppm: "", h2s_ppm: "" });
+  const [catatanAudit, setCatatanAudit] = useState("");
+
+  const load = useCallback(() => {
+    getPermit(id)
+      .then((res) => setPermit(res.data.data))
+      .catch(() => toast.error("Gagal memuat izin."))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (hasRole("AA")) getPsbTypes().then((res) => setPsbTypes(res.data.data)).catch(() => {});
+  }, [hasRole]);
+
+  const isOwnerPA = permit && Number(user?.id) === Number(permit.performing_authority_id);
+
+  const run = async (fn, okMsg) => {
+    setBusy(true);
+    try {
+      const res = await fn();
+      toast.success(res.data?.message || okMsg);
+      load();
+    } catch (err) {
+      // Tampilkan pesan validasi (422) apa adanya agar penyebabnya jelas.
+      const data = err.response?.data;
+      const pesanValidasi = data?.errors
+        ? Object.values(data.errors).flat().join(" ")
+        : null;
+      toast.error(pesanValidasi || data?.message || "Aksi gagal.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Daftar jenis izin yang tercakup (fallback ke jenis utama untuk izin lama).
+  const jenisIzin = permit?.permit_types?.length
+    ? permit.permit_types
+    : permit?.permit_type
+      ? [permit.permit_type]
+      : [];
+
+  const togglePsb = (typeId, psbId) =>
+    setSelectedPsb((prev) => ({
+      ...prev,
+      [typeId]: { ...(prev[typeId] || {}), [psbId]: !prev[typeId]?.[psbId] },
+    }));
+
+  const doApprove = () => {
+    // Kirim PSB per jenis izin: [{ permit_type_id, psb_type_ids: [...] }, ...]
+    const psb = jenisIzin.map((t) => ({
+      permit_type_id: t.id,
+      psb_type_ids: Object.keys(selectedPsb[t.id] || {})
+        .filter((k) => selectedPsb[t.id][k])
+        .map(Number),
+    }));
+
+    const kosong = psb.filter((k) => k.psb_type_ids.length === 0);
+    if (kosong.length > 0) {
+      toast.error("Setiap jenis izin wajib memiliki minimal satu PSB.");
+      return;
+    }
+
+    run(() => approvePermit(id, psb), "Izin disetujui.");
+  };
+
+  const doGasTest = () => {
+    if (gas.oksigen_persen === "" || gas.lel_persen === "") { toast.error("Oksigen & LEL wajib diisi."); return; }
+    run(() => addGasTest(id, {
+      oksigen_persen: Number(gas.oksigen_persen),
+      lel_persen: Number(gas.lel_persen),
+      co_ppm: gas.co_ppm === "" ? null : Number(gas.co_ppm),
+      h2s_ppm: gas.h2s_ppm === "" ? null : Number(gas.h2s_ppm),
+    }), "Uji gas tersimpan.");
+  };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-500">Memuat...</div>;
+  if (!permit) return null;
+
+  const S = permit.status;
+  const fmt = (d) => (d ? new Date(d).toLocaleString("id-ID") : "-");
+
+  return (
+    <div className="min-h-screen bg-slate-100 p-6">
+      <div className="max-w-3xl mx-auto space-y-4">
+        <button onClick={() => navigate("/permits")} className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900">
+          <ArrowLeft size={16} /> Daftar Izin
+        </button>
+
+        {/* Ringkasan izin */}
+        <div className="bg-white rounded-xl shadow p-6">
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-lg font-bold text-slate-800">{permit.nomor_izin}</h1>
+            <StatusBadge status={S} />
+          </div>
+          <dl className="text-sm text-slate-600 grid grid-cols-2 gap-2">
+            <div className="col-span-2">
+              <span className="font-medium">Jenis Izin:</span>{" "}
+              {jenisIzin.length > 0
+                ? jenisIzin.map((t) => (
+                    <span key={t.id} className="inline-block mr-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs">
+                      {t.kode} — {t.nama}
+                    </span>
+                  ))
+                : "-"}
+            </div>
+            <div><span className="font-medium">Lokasi:</span> {permit.lokasi}</div>
+            <div className="col-span-2"><span className="font-medium">Deskripsi:</span> {permit.deskripsi_pekerjaan}</div>
+            <div><span className="font-medium">Durasi:</span> {permit.durasi || "-"}</div>
+            <div><span className="font-medium">PA:</span> {permit.performing_authority?.name ?? "-"}</div>
+            <div><span className="font-medium">AA (dituju):</span> {permit.approval_authority?.name ?? "-"}</div>
+            <div><span className="font-medium">IA (dituju):</span> {permit.issuing_authority?.name ?? "-"}</div>
+            <div><span className="font-medium">Terbit:</span> {fmt(permit.tgl_terbit)}</div>
+            <div><span className="font-medium">Kadaluarsa:</span> {fmt(permit.tgl_kadaluarsa)}</div>
+          </dl>
+        </div>
+
+        {/* PSB yang ditetapkan */}
+        {permit.psb_forms?.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="font-semibold text-slate-800 mb-2">PSB Ditetapkan</h2>
+            <div className="space-y-2">
+              {jenisIzin.map((t) => {
+                const forms = permit.psb_forms.filter((f) => f.permit_type_id === t.id);
+                if (forms.length === 0) return null;
+                return (
+                  <div key={t.id}>
+                    <div className="text-xs font-semibold text-slate-500 mb-1">{t.kode}</div>
+                    <div className="flex flex-wrap gap-2">
+                      {forms.map((f) => (
+                        <span key={f.id} className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 text-xs">
+                          {f.psb_type?.kode} — {f.psb_type?.nama}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {/* PSB lama (tanpa jenis) */}
+              {permit.psb_forms.some((f) => !f.permit_type_id) && (
+                <div className="flex flex-wrap gap-2">
+                  {permit.psb_forms.filter((f) => !f.permit_type_id).map((f) => (
+                    <span key={f.id} className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 text-xs">
+                      {f.psb_type?.kode} — {f.psb_type?.nama}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Bagian 3 tersimpan (read-only) */}
+        {permit.hazards?.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="font-semibold text-slate-800 mb-2">Identifikasi Bahaya (Bagian 3)</h2>
+            <div className="space-y-2">
+              {jenisIzin.map((t) => {
+                const items = permit.hazards.filter((h) => h.permit_type_id === t.id);
+                if (items.length === 0) return null;
+                return (
+                  <div key={t.id}>
+                    <div className="text-xs font-semibold text-slate-500 mb-1">{t.kode}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {items.map((h) => (
+                        <span key={h.id} className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs">
+                          {String(h.no_bahaya).padStart(2, "0")} {h.deskripsi}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <dl className="mt-3 text-sm text-slate-600 space-y-1">
+              {permit.bahaya_lainnya && (
+                <div><span className="font-medium">Bahaya lainnya:</span> {permit.bahaya_lainnya}</div>
+              )}
+              <div><span className="font-medium">Nomor JSA:</span> {permit.nomor_jsa || "-"}</div>
+              <div>
+                <span className="font-medium">Tingkat risiko:</span>{" "}
+                {permit.tingkat_risiko
+                  ? permit.tingkat_risiko.charAt(0).toUpperCase() + permit.tingkat_risiko.slice(1)
+                  : "-"}
+              </div>
+            </dl>
+          </div>
+        )}
+
+        {/* Riwayat uji gas */}
+        {permit.gas_tests?.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Uji Gas</h2>
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-slate-500 border-b border-slate-200">
+                <th className="py-1">Waktu</th><th>O₂%</th><th>LEL%</th><th>CO</th><th>H₂S</th><th>Hasil</th><th>AGT</th>
+              </tr></thead>
+              <tbody>
+                {permit.gas_tests.map((g) => (
+                  <tr key={g.id} className="border-b border-slate-100">
+                    <td className="py-1">{g.tanggal} {g.jam}</td>
+                    <td>{g.oksigen_persen}</td><td>{g.lel_persen}</td><td>{g.co_ppm ?? "-"}</td><td>{g.h2s_ppm ?? "-"}</td>
+                    <td>{g.hasil_aman ? <span className="text-emerald-600 font-medium">AMAN</span> : <span className="text-red-600 font-medium">TIDAK</span>}</td>
+                    <td>{g.agt?.name ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ===== PANEL AKSI (sesuai role + status) ===== */}
+
+        {/* S11: PA ajukan draft */}
+        {S === "draft" && isOwnerPA && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <button onClick={() => run(() => submitPermit(id), "Izin diajukan.")} disabled={busy}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+              <Send size={16} /> Ajukan untuk Persetujuan
+            </button>
+          </div>
+        )}
+
+        {/* S12: AA approve/reject */}
+        {S === "menunggu_approval" && hasRole("AA") && (
+          <div className="bg-white rounded-xl shadow p-6 space-y-3">
+            <h2 className="font-semibold text-slate-800">Persetujuan (AA)</h2>
+            <p className="text-sm text-slate-500">
+              Tetapkan PSB (Life Saving Rules) untuk <strong>setiap</strong> jenis izin yang tercakup:
+            </p>
+
+            <div className="space-y-4 max-h-96 overflow-auto">
+              {jenisIzin.map((t) => {
+                const jml = Object.values(selectedPsb[t.id] || {}).filter(Boolean).length;
+                return (
+                  <div key={t.id} className="border border-slate-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold text-slate-800">
+                        {t.kode} — {t.nama}
+                      </h3>
+                      <span className={`text-xs px-2 py-0.5 rounded ${jml > 0 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                        {jml > 0 ? `${jml} PSB dipilih` : "belum diisi"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                      {psbTypes.map((p) => (
+                        <label key={p.id} className="flex items-center gap-2 text-sm text-slate-600">
+                          <input type="checkbox" className="accent-emerald-600"
+                            checked={!!selectedPsb[t.id]?.[p.id]}
+                            onChange={() => togglePsb(t.id, p.id)} />
+                          {p.kode} — {p.nama}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button onClick={doApprove} disabled={busy} className="flex items-center gap-1 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+                <CheckCircle2 size={16} /> Setujui
+              </button>
+              <input value={alasan} onChange={(e) => setAlasan(e.target.value)} placeholder="Alasan penolakan (opsional)"
+                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+              <button onClick={() => run(() => rejectPermit(id, alasan), "Izin ditolak.")} disabled={busy}
+                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                <XCircle size={16} /> Tolak
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* S13: AGT uji gas (saat disetujui) */}
+        {S === "disetujui" && hasRole("AGT") && (
+          <div className="bg-white rounded-xl shadow p-6 space-y-3">
+            <div className="flex items-center gap-2"><FlaskConical className="text-cyan-600" size={18} /><h2 className="font-semibold text-slate-800">Input Uji Gas (AGT)</h2></div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[["oksigen_persen","O₂ % (19.5–23.5)"],["lel_persen","LEL % (<10)"],["co_ppm","CO ppm (<35)"],["h2s_ppm","H₂S ppm (<10)"]].map(([k,label]) => (
+                <div key={k}>
+                  <label className="block text-xs text-slate-500 mb-1">{label}</label>
+                  <input type="number" step="0.1" value={gas[k]} onChange={(e) => setGas((g) => ({ ...g, [k]: e.target.value }))}
+                    className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
+                </div>
+              ))}
+            </div>
+            <button onClick={doGasTest} disabled={busy} className="px-4 py-2 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50">
+              Simpan Uji Gas
+            </button>
+          </div>
+        )}
+
+        {/* S26 Bagian 3: PA melengkapi Identifikasi Bahaya (saat disetujui) */}
+        {S === "disetujui" && isOwnerPA && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <HazardForm
+              permit={permit}
+              awal={permit}
+              judul="Bagian 3 — Identifikasi Bahaya dan Pengendalian (PA)"
+              labelTombol="Simpan & Kirim ke IA"
+              busy={busy}
+              onSubmit={(payload) => run(() => submitHazards(id, payload), "Identifikasi bahaya tersimpan.")}
+            />
+          </div>
+        )}
+
+        {/* S26 Bagian 3: IA memeriksa (saat menunggu penerbitan) */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <HazardForm
+              permit={permit}
+              awal={permit}
+              judul="Bagian 3 — Pemeriksaan Bahaya (IA) — boleh menambah/menghapus"
+              labelTombol="Simpan Pemeriksaan"
+              busy={busy}
+              onSubmit={(payload) => run(() => reviewHazards(id, payload), "Pemeriksaan tersimpan.")}
+            />
+          </div>
+        )}
+
+        {/* S14: IA terbitkan (setelah PA melengkapi Bagian 3) */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && (
+          <div className="bg-white rounded-xl shadow p-6 space-y-2">
+            <h2 className="font-semibold text-slate-800">Penerbitan (IA)</h2>
+            <p className="text-sm text-slate-500">Periksa identifikasi bahaya di atas. Jika ada uji gas, hasil terakhir harus AMAN. Penerbitan menetapkan masa berlaku 72 jam.</p>
+            <button onClick={() => run(() => issuePermit(id), "Izin diterbitkan.")} disabled={busy}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+              <FileCheck2 size={16} /> Terbitkan Izin
+            </button>
+          </div>
+        )}
+
+        {/* S16: PA kembalikan / S17: PA selesaikan (saat aktif) */}
+        {S === "aktif" && isOwnerPA && (
+          <div className="bg-white rounded-xl shadow p-6 flex flex-wrap gap-2">
+            <button onClick={() => run(() => returnPermit(id), "Izin dikembalikan.")} disabled={busy}
+              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">
+              <RotateCcw size={16} /> Kembalikan (Tunda)
+            </button>
+            <button onClick={() => run(() => completePermit(id), "Pekerjaan selesai.")} disabled={busy}
+              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">
+              <CheckCheck size={16} /> Selesaikan Pekerjaan
+            </button>
+          </div>
+        )}
+
+        {/* S16: IA revalidasi (saat ditunda) */}
+        {S === "ditunda" && hasRole("IA") && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <button onClick={() => run(() => revalidatePermit(id), "Izin direvalidasi.")} disabled={busy}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+              <RefreshCw size={16} /> Revalidasi Izin
+            </button>
+          </div>
+        )}
+
+        {/* S17: IA tutup (saat selesai) */}
+        {S === "selesai" && hasRole("IA") && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <button onClick={() => run(() => closePermit(id), "Izin ditutup.")} disabled={busy}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 text-white hover:bg-slate-800 disabled:opacity-50">
+              <Lock size={16} /> Tutup Izin
+            </button>
+          </div>
+        )}
+
+        {/* S18: SPV live audit (saat aktif) */}
+        {S === "aktif" && hasRole("SPV") && (
+          <div className="bg-white rounded-xl shadow p-6 space-y-2">
+            <div className="flex items-center gap-2"><ClipboardCheck className="text-emerald-600" size={18} /><h2 className="font-semibold text-slate-800">Live Audit (Supervisor)</h2></div>
+            <textarea value={catatanAudit} onChange={(e) => setCatatanAudit(e.target.value)} rows={2}
+              placeholder="Catatan temuan (opsional)" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+            <button onClick={() => run(() => addLiveAudit(id, catatanAudit || null), "Live audit tercatat.")} disabled={busy}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+              Catat Live Audit
+            </button>
+          </div>
+        )}
+
+        {/* Riwayat live audit */}
+        {permit.live_audits?.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Live Audit</h2>
+            <ul className="text-sm text-slate-600 space-y-1">
+              {permit.live_audits.map((a) => (
+                <li key={a.id} className="border-b border-slate-100 py-1">
+                  <span className="text-slate-400">{a.tanggal} {a.jam}</span> — {a.auditor?.name ?? "-"}
+                  {a.catatan ? `: ${a.catatan}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Riwayat status */}
+        {permit.status_histories?.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Status</h2>
+            <ul className="text-sm text-slate-600 space-y-1">
+              {permit.status_histories.map((h) => (
+                <li key={h.id} className="flex items-center gap-2">
+                  <StatusBadge status={h.status} /> <span className="text-slate-400">{fmt(h.changed_at)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
