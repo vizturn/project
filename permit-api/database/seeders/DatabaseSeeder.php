@@ -13,7 +13,14 @@ class DatabaseSeeder extends Seeder
             PermitTypeSeeder::class,
             PsbTypeSeeder::class,
             ScreeningCriteriaSeeder::class,
-            AdminUserSeeder::class, // wajib setelah RoleSeeder (butuh role ADM)
+            HazardTypeSeeder::class,
+            AdminUserSeeder::class,
         ]);
+
+        if (app()->environment('local', 'testing')) {
+            $this->call([
+                TestUsersSeeder::class,
+            ]);
+        }
     }
 }
