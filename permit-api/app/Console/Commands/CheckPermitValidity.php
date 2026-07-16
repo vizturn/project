@@ -20,7 +20,9 @@ class CheckPermitValidity extends Command
         $expired   = 0;
 
         // 1) KADALUARSA — izin aktif/ditunda yang melewati tgl_kadaluarsa (72 jam)
-        $lewatMasa = Permit::whereIn('status', ['aktif', 'ditunda'])
+        // STEP 27 — 'menunggu_penerimaan' ikut kedaluwarsa: izin yang sudah diterbitkan
+        // namun tidak pernah diterima PA sampai masa berlakunya habis tidak boleh menggantung.
+        $lewatMasa = Permit::whereIn('status', ['menunggu_penerimaan', 'aktif', 'ditunda'])
             ->whereNotNull('tgl_kadaluarsa')
             ->where('tgl_kadaluarsa', '<', $now)
             ->get();

@@ -28,6 +28,20 @@ class Permit extends Model
         'nomor_jsa',
         'tingkat_risiko',
         'bahaya_lainnya',
+        'ref_permit_cse',
+        'ref_permit_wah',
+        'cert_isolation',
+        'cert_scaffolding',
+        'cert_excavation',
+        'sistem_safety_dinonaktifkan',
+        'referensi_lainnya',
+        'referensi_diisi_at',
+        'gas_uji_flammable',
+        'gas_uji_oksigen',
+        'gas_uji_beracun',
+        'gas_periode_ulang',
+        'gas_ditetapkan_at',
+        'diterima_pa_at',
         'status',
         'tgl_terbit',
         'tgl_kadaluarsa',
@@ -38,6 +52,13 @@ class Permit extends Model
         return [
             'tgl_terbit' => 'datetime',
             'tgl_kadaluarsa' => 'datetime',
+            // STEP 27 — Bagian 4, 5, 7
+            'referensi_diisi_at' => 'datetime',
+            'gas_ditetapkan_at'  => 'datetime',
+            'diterima_pa_at'     => 'datetime',
+            'gas_uji_flammable'  => 'boolean',
+            'gas_uji_oksigen'    => 'boolean',
+            'gas_uji_beracun'    => 'boolean',
         ];
     }
 

@@ -125,7 +125,24 @@ abstract class ApiTestCase extends TestCase
         ]);
     }
 
-    /** Helper: buat izin sampai status 'aktif'. Mengembalikan [id, pa, aa, ia]. */
+    /**
+     * Helper: IA melengkapi Bagian 4 (Referensi Pendukung) — WAJIB sebelum penerbitan.
+     */
+    protected function lengkapiReferensi(int $permitId): void
+    {
+        $this->postJson("/api/permits/{$permitId}/references", [
+            'cert_isolation' => 'ISO-001',
+        ]);
+    }
+
+    /**
+     * Helper: buat izin sampai status 'aktif'. Mengembalikan [id, pa, aa, ia].
+     *
+     * Alur lengkap (STEP 26 & 27):
+     *   disetujui -> PA Bagian 3 -> menunggu_penerbitan
+     *             -> IA Bagian 4 -> IA terbitkan -> menunggu_penerimaan
+     *             -> PA terima PTW (Bagian 7) -> aktif
+     */
     protected function buatIzinAktif(): array
     {
         ['id' => $id, 'pa' => $pa, 'aa' => $aa, 'ia' => $ia] = $this->buatIzinDisetujui();
@@ -136,13 +153,18 @@ abstract class ApiTestCase extends TestCase
             'lel_persen'     => 1.0,
         ]);
 
-        // STEP 26 — PA wajib melengkapi Bagian 3 sebelum izin dapat diterbitkan.
+        // STEP 26 — PA wajib melengkapi Bagian 3.
         Sanctum::actingAs($pa);
         $this->lengkapiBahaya($id, [$this->idPermitType('HWP')]);
 
-        // Hanya IA yang DITUGASKAN yang boleh menerbitkan.
+        // STEP 27 — IA melengkapi Bagian 4, lalu menerbitkan.
         Sanctum::actingAs($ia);
+        $this->lengkapiReferensi($id);
         $this->postJson("/api/permits/{$id}/issue");
+
+        // STEP 27 — PA menerima PTW (Bagian 7) -> AKTIF.
+        Sanctum::actingAs($pa);
+        $this->postJson("/api/permits/{$id}/accept", ['pernyataan' => true]);
 
         return ['id' => $id, 'pa' => $pa, 'aa' => $aa, 'ia' => $ia];
     }

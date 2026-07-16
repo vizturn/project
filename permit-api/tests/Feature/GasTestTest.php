@@ -2,46 +2,85 @@
 
 namespace Tests\Feature;
 
+use Laravel\Sanctum\Sanctum;
+
+/**
+ * Uji gas = PENCATATAN MURNI.
+ * Sistem hanya menyimpan angka hasil pengukuran; tidak menilai aman/tidak
+ * dan tidak memblokir penerbitan. Penilaian kondisi aman adalah wewenang IA.
+ */
 class GasTestTest extends ApiTestCase
 {
-    private function ujiGas(int $id, array $nilai): \Illuminate\Testing\TestResponse
+    public function test_agt_dapat_mencatat_hasil_uji_gas(): void
     {
+        ['id' => $id] = $this->buatIzinDisetujui();
+
         $this->actingAsRole('AGT');
-        return $this->postJson("/api/permits/{$id}/gas-tests", $nilai);
+        $this->postJson("/api/permits/{$id}/gas-tests", [
+            'oksigen_persen' => 20.9,
+            'lel_persen'     => 1.0,
+            'co_ppm'         => 5,
+            'h2s_ppm'        => 2,
+        ])->assertCreated()
+          ->assertJsonPath('data.oksigen_persen', '20.90')
+          ->assertJsonPath('data.lel_persen', '1.00');
+
+        $this->assertDatabaseHas('gas_tests', [
+            'permit_id'      => $id,
+            'oksigen_persen' => 20.90,
+            'lel_persen'     => 1.00,
+        ]);
     }
 
-    public function test_nilai_batas_aman(): void
+    /** Angka di luar ambang SOP tetap DICATAT — tidak ada penolakan. */
+    public function test_angka_di_luar_ambang_tetap_dicatat(): void
     {
         ['id' => $id] = $this->buatIzinDisetujui();
-        $this->ujiGas($id, ['oksigen_persen' => 19.5, 'lel_persen' => 9.9, 'co_ppm' => 34, 'h2s_ppm' => 9])
-            ->assertCreated()->assertJsonPath('data.hasil_aman', true);
+
+        $this->actingAsRole('AGT');
+        $this->postJson("/api/permits/{$id}/gas-tests", [
+            'oksigen_persen' => 15.0,  // di bawah 19.5
+            'lel_persen'     => 40.0,  // jauh di atas 10
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('gas_tests', [
+            'permit_id'  => $id,
+            'lel_persen' => 40.00,
+        ]);
     }
 
-    public function test_oksigen_terlalu_rendah_tidak_aman(): void
+    public function test_ia_juga_dapat_mencatat_hasil_uji_gas(): void
     {
-        ['id' => $id] = $this->buatIzinDisetujui();
-        $this->ujiGas($id, ['oksigen_persen' => 19.4, 'lel_persen' => 1])
-            ->assertCreated()->assertJsonPath('data.hasil_aman', false);
+        ['id' => $id, 'ia' => $ia] = $this->buatIzinDisetujui();
+
+        Sanctum::actingAs($ia);
+        $this->postJson("/api/permits/{$id}/gas-tests", [
+            'oksigen_persen' => 20.9,
+            'lel_persen'     => 1.0,
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('gas_tests', 1);
     }
 
-    public function test_lel_terlalu_tinggi_tidak_aman(): void
+    public function test_uji_gas_ditolak_bila_izin_masih_draft(): void
     {
-        ['id' => $id] = $this->buatIzinDisetujui();
-        $this->ujiGas($id, ['oksigen_persen' => 20.9, 'lel_persen' => 10])
-            ->assertCreated()->assertJsonPath('data.hasil_aman', false);
+        ['id' => $id] = $this->buatIzinDraft();
+
+        $this->actingAsRole('AGT');
+        $this->postJson("/api/permits/{$id}/gas-tests", [
+            'oksigen_persen' => 20.9,
+            'lel_persen'     => 1.0,
+        ])->assertStatus(422);
     }
 
-    public function test_co_dan_h2s_null_tetap_aman_bila_o2_lel_ok(): void
+    public function test_peran_lain_tidak_dapat_mencatat_uji_gas(): void
     {
         ['id' => $id] = $this->buatIzinDisetujui();
-        $this->ujiGas($id, ['oksigen_persen' => 20.9, 'lel_persen' => 1])
-            ->assertCreated()->assertJsonPath('data.hasil_aman', true);
-    }
 
-    public function test_agt_wajib_isi_oksigen_dan_lel(): void
-    {
-        ['id' => $id] = $this->buatIzinDisetujui();
-        $this->ujiGas($id, ['oksigen_persen' => 20.9])   // lel tidak diisi
-            ->assertStatus(422);
+        $this->actingAsRole('AA'); // bukan AGT / IA
+        $this->postJson("/api/permits/{$id}/gas-tests", [
+            'oksigen_persen' => 20.9,
+            'lel_persen'     => 1.0,
+        ])->assertStatus(403);
     }
 }

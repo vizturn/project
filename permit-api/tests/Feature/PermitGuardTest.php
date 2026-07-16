@@ -19,24 +19,28 @@ class PermitGuardTest extends ApiTestCase
         ])->assertStatus(422);
     }
 
-    public function test_tidak_bisa_terbitkan_bila_uji_gas_tidak_aman(): void
+    /**
+     * STEP 28 — Uji gas TIDAK lagi memblokir penerbitan.
+     * Angka di luar ambang tetap dicatat, dan IA tetap dapat menerbitkan izin
+     * (penilaian kondisi aman adalah wewenangnya, sesuai pernyataan Bagian 6).
+     */
+    public function test_uji_gas_di_luar_ambang_tidak_memblokir_penerbitan(): void
     {
         ['id' => $id, 'pa' => $pa, 'ia' => $ia] = $this->buatIzinDisetujui();
 
         $this->actingAsRole('AGT');
         $this->postJson("/api/permits/{$id}/gas-tests", [
-            'oksigen_persen' => 15.0, 'lel_persen' => 1,
-        ])->assertCreated()->assertJsonPath('data.hasil_aman', false);
+            'oksigen_persen' => 15.0, 'lel_persen' => 40.0,
+        ])->assertCreated();
 
-        // PA melengkapi Bagian 3 -> menunggu_penerbitan
         Sanctum::actingAs($pa);
         $this->lengkapiBahaya($id, [$this->idPermitType('HWP')]);
 
-        // IA tetap TIDAK boleh menerbitkan karena uji gas terakhir tidak aman.
         Sanctum::actingAs($ia);
-        $this->postJson("/api/permits/{$id}/issue")->assertStatus(422);
+        $this->lengkapiReferensi($id);
+        $this->postJson("/api/permits/{$id}/issue")->assertOk();
 
-        $this->assertDatabaseHas('permits', ['id' => $id, 'status' => 'menunggu_penerbitan']);
+        $this->assertDatabaseHas('permits', ['id' => $id, 'status' => 'menunggu_penerimaan']);
     }
 
     public function test_pa_bukan_pemilik_tidak_bisa_submit(): void

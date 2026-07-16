@@ -46,6 +46,18 @@ class PermitService
         return $prefix . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
     }
 
+    public function butuhReferensiPendukung(Permit $permit): bool
+    {
+        $kode = $permit->permitTypes()->pluck('permit_types.kode');
+
+        // Kompatibel mundur: izin lama belum punya baris pivot permitTypes.
+        if ($kode->isEmpty() && $permit->permitType) {
+            $kode = collect([$permit->permitType->kode]);
+        }
+
+        return $kode->intersect(['HWP', 'CWP'])->isNotEmpty();
+    }
+
     public function recordTransition(
         Permit $permit,
         ?string $from,

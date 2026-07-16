@@ -18,12 +18,19 @@ class GasTestController extends Controller
         ]);
     }
 
-    /** S13 — AGT input uji gas; sistem menilai AMAN/TIDAK terhadap ambang SOP. */
+    /**
+     * Bagian 5 — Input hasil uji gas.
+     * Sesuai formulir, pengujian "dilaksanakan oleh IA atau Authorized Gas Tester (AGT)",
+     * sehingga KEDUA peran boleh mengisi hasilnya (kolom agt_id = pengisi).
+     * Sistem hanya MENCATAT angka hasil pengukuran — tidak menilai aman/tidak
+     * dan tidak memblokir penerbitan. Penilaian kondisi aman adalah wewenang IA
+     * (lihat pernyataan Bagian 6 pada formulir PTW).
+     */
     public function store(StoreGasTestRequest $request, Permit $permit)
     {
         $user = $request->user();
 
-        $bolehStatus = ['disetujui', 'menunggu_penerbitan', 'aktif', 'ditunda'];
+        $bolehStatus = ['disetujui', 'menunggu_penerbitan', 'menunggu_penerimaan', 'aktif', 'ditunda'];
         if (! in_array($permit->status, $bolehStatus, true)) {
             return response()->json([
                 'message' => 'Uji gas hanya dapat diinput setelah izin disetujui.',
@@ -36,12 +43,6 @@ class GasTestController extends Controller
         $co   = isset($data['co_ppm'])  ? (float) $data['co_ppm']  : null;
         $h2s  = isset($data['h2s_ppm']) ? (float) $data['h2s_ppm'] : null;
 
-        // Ambang aman (SOP §9.4 / Lampiran 9)
-        $aman = ($o2 >= 19.5 && $o2 <= 23.5)
-            && ($lel < 10)
-            && ($co === null || $co < 35)
-            && ($h2s === null || $h2s < 10);
-
         $gasTest = GasTest::create([
             'permit_id'      => $permit->id,
             'agt_id'         => $user->id,
@@ -51,7 +52,6 @@ class GasTestController extends Controller
             'oksigen_persen' => $o2,
             'co_ppm'         => $co,
             'h2s_ppm'        => $h2s,
-            'hasil_aman'     => $aman,
         ]);
 
         AuditLog::create([
@@ -59,15 +59,13 @@ class GasTestController extends Controller
             'aksi'       => 'gas_test',
             'entitas'    => 'gas_tests',
             'entitas_id' => $gasTest->id,
-            'data_baru'  => ['permit_id' => $permit->id, 'hasil_aman' => $aman],
+            'data_baru'  => ['permit_id' => $permit->id],
             'logged_at'  => now(),
         ]);
 
         return response()->json([
-            'message' => $aman
-                ? 'Hasil uji gas AMAN.'
-                : 'Hasil uji gas TIDAK AMAN — lakukan mitigasi sebelum penerbitan.',
-            'data' => $gasTest,
+            'message' => 'Hasil uji gas tercatat.',
+            'data'    => $gasTest,
         ], 201);
     }
 }

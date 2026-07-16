@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AcceptPermitRequest;
 use App\Http\Requests\ApprovePermitRequest;
 use App\Http\Requests\RejectPermitRequest;
 use App\Http\Requests\StorePermitRequest;
@@ -244,34 +245,43 @@ class PermitController extends Controller
             return response()->json(['message' => 'Izin ini ditujukan kepada Issuing Authority lain.'], 403);
         }
 
-        // Jika ada uji gas, yang terbaru wajib AMAN.
-        $latestGas = $permit->gasTests()->latest('id')->first();
-        if ($latestGas && ! $latestGas->hasil_aman) {
-            return response()->json(['message' => 'Uji gas terakhir TIDAK AMAN. Izin tidak dapat diterbitkan.'], 422);
+        // STEP 27 — Bagian 4 (Referensi Pendukung) WAJIB diisi sebelum penerbitan.
+        if ($permit->referensi_diisi_at === null) {
+            return response()->json([
+                'message' => 'Bagian 4 (Referensi Pendukung) wajib dilengkapi sebelum penerbitan.',
+            ], 422);
         }
+
+        // STEP 28 — Uji gas TIDAK lagi memblokir penerbitan.
+        // Hasil pengukuran hanya dicatat; penilaian kondisi aman adalah wewenang IA
+        // (pernyataan Bagian 6). Uji gas sepenuhnya opsional.
 
         $now      = now();
         $kadaluar = $now->copy()->addHours(72);
 
+        // Masa berlaku dihitung sejak PENERBITAN (sesuai formulir: "Berlaku tanggal ... s.d.").
         $permit->update([
-            'status'               => 'aktif',
+            'status'               => 'menunggu_penerimaan',
             'issuing_authority_id' => $user->id,
             'tgl_terbit'           => $now,
             'tgl_kadaluarsa'       => $kadaluar,
         ]);
 
         $this->service->recordTransition(
-            $permit, 'menunggu_penerbitan', 'aktif', $user, 'issue_permit',
+            $permit, 'menunggu_penerbitan', 'menunggu_penerimaan', $user, 'issue_permit',
             ['tgl_terbit' => $now->toDateTimeString(), 'tgl_kadaluarsa' => $kadaluar->toDateTimeString()]
         );
 
         $this->notif(
             $permit->performing_authority_id,
             $permit->id,
-            "Izin {$permit->nomor_izin} Anda telah DITERBITKAN dan berstatus AKTIF."
+            "Izin {$permit->nomor_izin} telah DITERBITKAN. Silakan lakukan Penerimaan PTW (Bagian 7)."
         );
 
-        return response()->json(['message' => 'Izin diterbitkan dan berstatus AKTIF.', 'data' => $permit]);
+        return response()->json([
+            'message' => 'Izin diterbitkan. Menunggu Penerimaan PTW oleh PA.',
+            'data'    => $permit,
+        ]);
     }
 
     /** S16 — PA mengembalikan izin (aktif -> ditunda). */
@@ -349,6 +359,45 @@ class PermitController extends Controller
         $this->service->recordTransition($permit, 'selesai', 'closed', $user, 'close_permit');
 
         return response()->json(['message' => 'Izin ditutup (CLOSED).', 'data' => $permit]);
+    }
+
+    /**
+     * STEP 27 — Bagian 7: Penerimaan PTW oleh PA (menunggu_penerimaan -> aktif).
+     * PA menyatakan telah membaca & memahami izin serta menerima tanggung jawab.
+     */
+    public function accept(AcceptPermitRequest $request, Permit $permit)
+    {
+        $user = $request->user();
+
+        if ((int) $permit->performing_authority_id !== (int) $user->id) {
+            return response()->json(['message' => 'Hanya PA pemilik izin yang dapat menerima PTW ini.'], 403);
+        }
+
+        if ($permit->status !== 'menunggu_penerimaan') {
+            return response()->json([
+                'message' => 'Penerimaan PTW hanya dapat dilakukan setelah izin diterbitkan IA.',
+            ], 422);
+        }
+
+        $permit->update([
+            'status'         => 'aktif',
+            'diterima_pa_at' => now(),
+        ]);
+
+        $this->service->recordTransition(
+            $permit, 'menunggu_penerimaan', 'aktif', $user, 'accept_permit'
+        );
+
+        $this->notif(
+            $permit->issuing_authority_id,
+            $permit->id,
+            "PTW {$permit->nomor_izin} telah diterima PA. Pekerjaan berstatus AKTIF."
+        );
+
+        return response()->json([
+            'message' => 'PTW diterima. Izin berstatus AKTIF.',
+            'data'    => $permit,
+        ]);
     }
 
     /**

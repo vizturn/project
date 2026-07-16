@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\GasTestController;
 use App\Http\Controllers\Api\HazardController;
+use App\Http\Controllers\Api\IssuancePrepController;
 use App\Http\Controllers\Api\LiveAuditController;
 use App\Http\Controllers\Api\MasterDataController;
 use App\Http\Controllers\Api\NotificationController;
@@ -57,16 +58,22 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/permits/{permit}/return', [PermitController::class, 'returnPermit']);
         Route::post('/permits/{permit}/complete', [PermitController::class, 'complete']);
         Route::post('/permits/{permit}/hazards', [HazardController::class, 'store']);
+        // STEP 27 — Bagian 7: Penerimaan PTW oleh PA (menunggu_penerimaan -> aktif)
+        Route::post('/permits/{permit}/accept', [PermitController::class, 'accept']);
     });
     Route::middleware('role:AA')->group(function () {
         Route::post('/permits/{permit}/approve', [PermitController::class, 'approve']);
         Route::post('/permits/{permit}/reject', [PermitController::class, 'reject']);
     });
-    Route::middleware('role:AGT')->group(function () {
+    // Uji gas (Bagian 5) — sesuai formulir: dilaksanakan oleh IA ATAU AGT.
+    Route::middleware('role:AGT,IA')->group(function () {
         Route::post('/permits/{permit}/gas-tests', [GasTestController::class, 'store']);
     });
     Route::middleware('role:IA')->group(function () {
         Route::put('/permits/{permit}/hazards', [HazardController::class, 'update']);
+        // STEP 27 — Bagian 4 (Referensi Pendukung) & Bagian 5 (Penetapan Uji Gas)
+        Route::post('/permits/{permit}/references', [IssuancePrepController::class, 'storeReferences']);
+        Route::post('/permits/{permit}/gas-requirement', [IssuancePrepController::class, 'storeGasRequirement']);
         Route::post('/permits/{permit}/issue', [PermitController::class, 'issue']);
         Route::post('/permits/{permit}/revalidate', [PermitController::class, 'revalidate']);
         Route::post('/permits/{permit}/close', [PermitController::class, 'close']);

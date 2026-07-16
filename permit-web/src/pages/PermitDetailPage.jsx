@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit } from "../services/permitService";
+import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit } from "../services/permitService";
 import { getPsbTypes } from "../services/masterService";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/StatusBadge";
 import HazardForm from "../components/HazardForm";
+import ReferenceForm from "../components/ReferenceForm";
+import GasRequirementForm from "../components/GasRequirementForm";
+import GasResultForm from "../components/GasResultForm";
 import { submitHazards, reviewHazards } from "../services/hazardService";
 import { toast } from "sonner";
 import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck } from "lucide-react";
@@ -24,6 +27,7 @@ export default function PermitDetailPage() {
   const [alasan, setAlasan] = useState("");
   const [gas, setGas] = useState({ oksigen_persen: "", lel_persen: "", co_ppm: "", h2s_ppm: "" });
   const [catatanAudit, setCatatanAudit] = useState("");
+  const [setuju, setSetuju] = useState(false);
 
   const load = useCallback(() => {
     getPermit(id)
@@ -211,6 +215,51 @@ export default function PermitDetailPage() {
           </div>
         )}
 
+        {/* Bagian 4 & 5 tersimpan (read-only) */}
+        {(permit.referensi_diisi_at || permit.gas_ditetapkan_at) && (
+          <div className="bg-white rounded-xl shadow p-6 space-y-3">
+            {permit.referensi_diisi_at && (
+              <div>
+                <h2 className="font-semibold text-slate-800 mb-1">Referensi Pendukung (Bagian 4)</h2>
+                <dl className="text-sm text-slate-600 grid grid-cols-1 sm:grid-cols-2 gap-1">
+                  <div><span className="font-medium">CSE:</span> {permit.ref_permit_cse || "-"}</div>
+                  <div><span className="font-medium">Bekerja di Ketinggian:</span> {permit.ref_permit_wah || "-"}</div>
+                  <div><span className="font-medium">Isolation:</span> {permit.cert_isolation || "-"}</div>
+                  <div><span className="font-medium">Scaffolding:</span> {permit.cert_scaffolding || "-"}</div>
+                  <div><span className="font-medium">Excavation:</span> {permit.cert_excavation || "-"}</div>
+                  {permit.sistem_safety_dinonaktifkan && (
+                    <div className="sm:col-span-2">
+                      <span className="font-medium">Sistem safety di-non-aktifkan:</span> {permit.sistem_safety_dinonaktifkan}
+                    </div>
+                  )}
+                  {permit.referensi_lainnya && (
+                    <div className="sm:col-span-2">
+                      <span className="font-medium">Referensi lainnya:</span> {permit.referensi_lainnya}
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
+
+            {permit.gas_ditetapkan_at && (
+              <div className="border-t border-slate-100 pt-3">
+                <h2 className="font-semibold text-slate-800 mb-1">Penetapan Uji Gas (Bagian 5)</h2>
+                <div className="flex flex-wrap gap-2 mb-1">
+                  {permit.gas_uji_flammable && <span className="px-2 py-0.5 rounded bg-cyan-100 text-cyan-700 text-xs">Flammable (%LEL)</span>}
+                  {permit.gas_uji_oksigen && <span className="px-2 py-0.5 rounded bg-cyan-100 text-cyan-700 text-xs">Oksigen (%)</span>}
+                  {permit.gas_uji_beracun && <span className="px-2 py-0.5 rounded bg-cyan-100 text-cyan-700 text-xs">Beracun (ppm)</span>}
+                  {!permit.gas_uji_flammable && !permit.gas_uji_oksigen && !permit.gas_uji_beracun && (
+                    <span className="text-sm text-slate-500">Tidak ada gas yang ditetapkan wajib diuji.</span>
+                  )}
+                </div>
+                <p className="text-sm text-slate-600">
+                  <span className="font-medium">Periode pengetesan ulang:</span> {permit.gas_periode_ulang || "-"}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Riwayat uji gas */}
         {permit.gas_tests?.length > 0 && (
           <div className="bg-white rounded-xl shadow p-6">
@@ -224,7 +273,6 @@ export default function PermitDetailPage() {
                   <tr key={g.id} className="border-b border-slate-100">
                     <td className="py-1">{g.tanggal} {g.jam}</td>
                     <td>{g.oksigen_persen}</td><td>{g.lel_persen}</td><td>{g.co_ppm ?? "-"}</td><td>{g.h2s_ppm ?? "-"}</td>
-                    <td>{g.hasil_aman ? <span className="text-emerald-600 font-medium">AMAN</span> : <span className="text-red-600 font-medium">TIDAK</span>}</td>
                     <td>{g.agt?.name ?? "-"}</td>
                   </tr>
                 ))}
@@ -294,26 +342,17 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* S13: AGT uji gas (saat disetujui) */}
+        {/* Uji gas oleh AGT saat izin disetujui (opsional, sebelum Bagian 3) */}
         {S === "disetujui" && hasRole("AGT") && (
-          <div className="bg-white rounded-xl shadow p-6 space-y-3">
-            <div className="flex items-center gap-2"><FlaskConical className="text-cyan-600" size={18} /><h2 className="font-semibold text-slate-800">Input Uji Gas (AGT)</h2></div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[["oksigen_persen","O₂ % (19.5–23.5)"],["lel_persen","LEL % (<10)"],["co_ppm","CO ppm (<35)"],["h2s_ppm","H₂S ppm (<10)"]].map(([k,label]) => (
-                <div key={k}>
-                  <label className="block text-xs text-slate-500 mb-1">{label}</label>
-                  <input type="number" step="0.1" value={gas[k]} onChange={(e) => setGas((g) => ({ ...g, [k]: e.target.value }))}
-                    className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm" />
-                </div>
-              ))}
-            </div>
-            <button onClick={doGasTest} disabled={busy} className="px-4 py-2 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50">
-              Simpan Uji Gas
-            </button>
+          <div className="bg-white rounded-xl shadow p-6">
+            <GasResultForm
+              busy={busy}
+              onSubmit={(payload) => run(() => addGasTest(id, payload), "Uji gas tersimpan.")}
+            />
           </div>
         )}
 
-        {/* S26 Bagian 3: PA melengkapi Identifikasi Bahaya (saat disetujui) */}
+        {/* Bagian 3: PA melengkapi Identifikasi Bahaya (saat disetujui) */}
         {S === "disetujui" && isOwnerPA && (
           <div className="bg-white rounded-xl shadow p-6">
             <HazardForm
@@ -327,7 +366,7 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* S26 Bagian 3: IA memeriksa (saat menunggu penerbitan) */}
+        {/* Bagian 3: IA memeriksa & boleh MENAMBAH/MENGHAPUS bahaya (saat menunggu penerbitan) */}
         {S === "menunggu_penerbitan" && hasRole("IA") && (
           <div className="bg-white rounded-xl shadow p-6">
             <HazardForm
@@ -336,7 +375,39 @@ export default function PermitDetailPage() {
               judul="Bagian 3 — Pemeriksaan Bahaya (IA) — boleh menambah/menghapus"
               labelTombol="Simpan Pemeriksaan"
               busy={busy}
-              onSubmit={(payload) => run(() => reviewHazards(id, payload), "Pemeriksaan tersimpan.")}
+              onSubmit={(payload) => run(() => reviewHazards(id, payload), "Pemeriksaan bahaya tersimpan.")}
+            />
+          </div>
+        )}
+
+        {/* STEP 27 — Bagian 4: Referensi Pendukung (IA) */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <ReferenceForm
+              awal={permit}
+              busy={busy}
+              onSubmit={(payload) => run(() => storeReferences(id, payload), "Bagian 4 tersimpan.")}
+            />
+          </div>
+        )}
+
+        {/* STEP 27 — Bagian 5: Penetapan pengujian gas (IA) */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <GasRequirementForm
+              awal={permit}
+              busy={busy}
+              onSubmit={(payload) => run(() => storeGasRequirement(id, payload), "Bagian 5 tersimpan.")}
+            />
+          </div>
+        )}
+
+        {/* STEP 27 — Hasil uji gas: boleh diisi IA maupun AGT */}
+        {S === "menunggu_penerbitan" && (hasRole("IA") || hasRole("AGT")) && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <GasResultForm
+              busy={busy}
+              onSubmit={(payload) => run(() => addGasTest(id, payload), "Hasil uji gas tersimpan.")}
             />
           </div>
         )}
@@ -344,11 +415,56 @@ export default function PermitDetailPage() {
         {/* S14: IA terbitkan (setelah PA melengkapi Bagian 3) */}
         {S === "menunggu_penerbitan" && hasRole("IA") && (
           <div className="bg-white rounded-xl shadow p-6 space-y-2">
-            <h2 className="font-semibold text-slate-800">Penerbitan (IA)</h2>
-            <p className="text-sm text-slate-500">Periksa identifikasi bahaya di atas. Jika ada uji gas, hasil terakhir harus AMAN. Penerbitan menetapkan masa berlaku 72 jam.</p>
+            <h2 className="font-semibold text-slate-800">Bagian 6 — Penerbitan (IA)</h2>
+            <p className="text-sm text-slate-500">
+              Saya, IA, menyatakan semua bahaya telah diidentifikasi, semua tindakan pencegahan telah
+              dilakukan, dan kondisi aman untuk melaksanakan pekerjaan.
+            </p>
+            <ul className="text-xs text-slate-500 list-disc pl-5 space-y-0.5">
+              <li>Bagian 4 (Referensi Pendukung) {permit.referensi_diisi_at ? "sudah diisi" : "BELUM diisi — wajib"}</li>
+              <li>Masa berlaku 72 jam dihitung sejak penerbitan.</li>
+            </ul>
             <button onClick={() => run(() => issuePermit(id), "Izin diterbitkan.")} disabled={busy}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
               <FileCheck2 size={16} /> Terbitkan Izin
+            </button>
+          </div>
+        )}
+
+        {/* STEP 27 — Bagian 7: Penerimaan PTW oleh PA */}
+        {S === "menunggu_penerimaan" && isOwnerPA && (
+          <div className="bg-white rounded-xl shadow p-6 space-y-3">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="text-violet-600" size={18} />
+              <h2 className="font-semibold text-slate-800">Bagian 7 — Penerimaan PTW (PA)</h2>
+            </div>
+            <p className="text-sm text-slate-600">
+              Saya, PA, telah membaca dan memahami semua kondisi dalam PTW ini beserta lampirannya.
+              Saya menerima tanggung jawab pelaksanaan pekerjaan sesuai PTW ini. Saya akan menghentikan
+              pekerjaan dan segera memberitahukan kepada IA jika kondisi tidak aman atau jika kondisi
+              dalam PTW ini berubah.
+            </p>
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-violet-600"
+                checked={setuju}
+                onChange={() => setSetuju((v) => !v)}
+              />
+              Saya menyatakan telah membaca, memahami, dan menerima PTW ini.
+            </label>
+            <button
+              onClick={() => {
+                if (!setuju) {
+                  toast.error("Centang pernyataan penerimaan terlebih dahulu.");
+                  return;
+                }
+                run(() => acceptPermit(id), "PTW diterima. Izin AKTIF.");
+              }}
+              disabled={busy}
+              className="px-4 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-50"
+            >
+              Terima PTW & Aktifkan
             </button>
           </div>
         )}

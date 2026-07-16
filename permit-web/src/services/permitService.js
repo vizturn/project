@@ -17,3 +17,15 @@ export const revalidatePermit = (id) => api.post(`/permits/${id}/revalidate`);
 export const completePermit = (id) => api.post(`/permits/${id}/complete`);
 export const closePermit = (id) => api.post(`/permits/${id}/close`);
 export const addLiveAudit = (id, catatan) => api.post(`/permits/${id}/live-audits`, { catatan });
+
+// STEP 27 — Bagian 4: Referensi Pendukung (IA)
+export const storeReferences = (id, payload) =>
+  api.post(`/permits/${id}/references`, payload);
+
+// STEP 27 — Bagian 5: IA menetapkan pengujian gas yang wajib
+export const storeGasRequirement = (id, payload) =>
+  api.post(`/permits/${id}/gas-requirement`, payload);
+
+// STEP 27 — Bagian 7: Penerimaan PTW oleh PA (menunggu_penerimaan -> aktif)
+export const acceptPermit = (id) =>
+  api.post(`/permits/${id}/accept`, { pernyataan: true });

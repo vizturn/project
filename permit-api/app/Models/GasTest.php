@@ -19,7 +19,6 @@ class GasTest extends Model
         'oksigen_persen',
         'co_ppm',
         'h2s_ppm',
-        'hasil_aman',
     ];
 
     protected function casts(): array
@@ -30,7 +29,6 @@ class GasTest extends Model
             'oksigen_persen' => 'decimal:2',
             'co_ppm' => 'decimal:2',
             'h2s_ppm' => 'decimal:2',
-            'hasil_aman' => 'boolean',
         ];
     }
 

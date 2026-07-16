@@ -52,16 +52,26 @@ class PermitLifecycleTest extends ApiTestCase
         $this->actingAsRole('AGT');
         $this->postJson("/api/permits/{$id}/gas-tests", [
             'oksigen_persen' => 20.9, 'lel_persen' => 1,
-        ])->assertCreated()->assertJsonPath('data.hasil_aman', true);
+        ])->assertCreated();
 
         // --- PA: lengkapi Bagian 3 (disetujui -> menunggu_penerbitan) ---
         Sanctum::actingAs($pa);
         $this->lengkapiBahaya($id, [$this->idPermitType('HWP')]);
         $this->assertDatabaseHas('permits', ['id' => $id, 'status' => 'menunggu_penerbitan']);
 
-        // --- IA (yang ditunjuk): terbitkan ---
+        // --- IA: Bagian 4 (Referensi Pendukung) — wajib sebelum penerbitan ---
         Sanctum::actingAs($ia);
+        $this->postJson("/api/permits/{$id}/references", [
+            'cert_isolation' => 'ISO-001',
+        ])->assertOk();
+
+        // --- IA: Bagian 6 terbitkan -> menunggu penerimaan PA ---
         $this->postJson("/api/permits/{$id}/issue")->assertOk();
+        $this->assertDatabaseHas('permits', ['id' => $id, 'status' => 'menunggu_penerimaan']);
+
+        // --- PA: Bagian 7 Penerimaan PTW -> AKTIF ---
+        Sanctum::actingAs($pa);
+        $this->postJson("/api/permits/{$id}/accept", ['pernyataan' => true])->assertOk();
         $this->assertDatabaseHas('permits', ['id' => $id, 'status' => 'aktif']);
 
         // --- PA (owner): kembalikan ---
