@@ -29,6 +29,12 @@ export default function PermitDetailPage() {
   const [catatanAudit, setCatatanAudit] = useState("");
   const [setuju, setSetuju] = useState(false);
 
+  // Bagian 8 — Pengembalian (PA) & Revalidasi (IA): tanggal & jam manual.
+  const [tglKembali, setTglKembali] = useState("");
+  const [jamKembali, setJamKembali] = useState("");
+  const [tglRevalidasi, setTglRevalidasi] = useState("");
+  const [jamRevalidasi, setJamRevalidasi] = useState("");
+
   const load = useCallback(() => {
     getPermit(id)
       .then((res) => setPermit(res.data.data))
@@ -40,6 +46,29 @@ export default function PermitDetailPage() {
   useEffect(() => {
     if (hasRole("AA")) getPsbTypes().then((res) => setPsbTypes(res.data.data)).catch(() => {});
   }, [hasRole]);
+
+  const pad = (n) => String(n).padStart(2, "0");
+  const toDateInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const toTimeInput = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+  // Bagian 8 — isi default: PA & IA sama-sama default ke tanggal/jam saat ini,
+  // masing-masing form berdiri sendiri (form IA TIDAK menyalin data PA).
+  useEffect(() => {
+    if (!permit) return;
+
+    if (permit.status === "aktif" && !tglKembali) {
+      const now = new Date();
+      setTglKembali(toDateInput(now));
+      setJamKembali(toTimeInput(now));
+    }
+
+    if (permit.status === "ditunda" && !tglRevalidasi) {
+      const now = new Date();
+      setTglRevalidasi(toDateInput(now));
+      setJamRevalidasi(toTimeInput(now));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permit?.status]);
 
   const isOwnerPA = permit && Number(user?.id) === Number(permit.performing_authority_id);
 
@@ -90,6 +119,16 @@ export default function PermitDetailPage() {
     }
 
     run(() => approvePermit(id, psb), "Izin disetujui.");
+  };
+
+  const doReturn = () => {
+    if (!tglKembali || !jamKembali) { toast.error("Tanggal & jam pengembalian wajib diisi."); return; }
+    run(() => returnPermit(id, { tanggal: tglKembali, jam: jamKembali }), "Izin dikembalikan.");
+  };
+
+  const doRevalidate = () => {
+    if (!tglRevalidasi || !jamRevalidasi) { toast.error("Tanggal & jam revalidasi wajib diisi."); return; }
+    run(() => revalidatePermit(id, { tanggal: tglRevalidasi, jam: jamRevalidasi }), "Revalidasi dikirim ke PA. Izin AKTIF kembali.");
   };
 
   const doGasTest = () => {
@@ -469,27 +508,60 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* S16: PA kembalikan / S17: PA selesaikan (saat aktif) */}
+        {/* S16: PA kembalikan (Bagian 8 — Pengembalian) / S17: PA selesaikan (saat aktif) */}
         {S === "aktif" && isOwnerPA && (
-          <div className="bg-white rounded-xl shadow p-6 flex flex-wrap gap-2">
-            <button onClick={() => run(() => returnPermit(id), "Izin dikembalikan.")} disabled={busy}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">
-              <RotateCcw size={16} /> Kembalikan (Tunda)
-            </button>
-            <button onClick={() => run(() => completePermit(id), "Pekerjaan selesai.")} disabled={busy}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">
-              <CheckCheck size={16} /> Selesaikan Pekerjaan
-            </button>
+          <div className="bg-white rounded-xl shadow p-6 space-y-3">
+            <div>
+              <h2 className="font-semibold text-slate-800 mb-2">Bagian 8 — Pengembalian (PA)</h2>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="text-sm text-slate-600">
+                  Tanggal
+                  <input type="date" value={tglKembali} onChange={(e) => setTglKembali(e.target.value)}
+                    className="block px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                </label>
+                <label className="text-sm text-slate-600">
+                  Jam
+                  <input type="time" value={jamKembali} onChange={(e) => setJamKembali(e.target.value)}
+                    className="block px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                </label>
+                <button onClick={doReturn} disabled={busy}
+                  className="flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">
+                  <RotateCcw size={16} /> Kembalikan (Tunda)
+                </button>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-slate-100">
+              <button onClick={() => run(() => completePermit(id), "Pekerjaan selesai.")} disabled={busy}
+                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">
+                <CheckCheck size={16} /> Selesaikan Pekerjaan
+              </button>
+            </div>
           </div>
         )}
 
-        {/* S16: IA revalidasi (saat ditunda) */}
+        {/* S16: IA revalidasi (Bagian 8 — Revalidasi, saat ditunda) — form terpisah dari Pengembalian PA */}
         {S === "ditunda" && hasRole("IA") && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <button onClick={() => run(() => revalidatePermit(id), "Izin direvalidasi.")} disabled={busy}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
-              <RefreshCw size={16} /> Revalidasi Izin
-            </button>
+          <div className="bg-white rounded-xl shadow p-6 space-y-2">
+            <h2 className="font-semibold text-slate-800">Bagian 8 — Revalidasi (IA)</h2>
+            <p className="text-sm text-slate-500">
+              Tentukan tanggal &amp; jam revalidasi Anda sendiri, lalu kirim ke PA — izin akan berstatus AKTIF kembali.
+            </p>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="text-sm text-slate-600">
+                Tanggal Revalidasi
+                <input type="date" value={tglRevalidasi} onChange={(e) => setTglRevalidasi(e.target.value)}
+                  className="block px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+              </label>
+              <label className="text-sm text-slate-600">
+                Jam Revalidasi
+                <input type="time" value={jamRevalidasi} onChange={(e) => setJamRevalidasi(e.target.value)}
+                  className="block px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+              </label>
+              <button onClick={doRevalidate} disabled={busy}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+                <RefreshCw size={16} /> Kirim Revalidasi ke PA
+              </button>
+            </div>
           </div>
         )}
 
@@ -525,6 +597,26 @@ export default function PermitDetailPage() {
                 <li key={a.id} className="border-b border-slate-100 py-1">
                   <span className="text-slate-400">{a.tanggal} {a.jam}</span> — {a.auditor?.name ?? "-"}
                   {a.catatan ? `: ${a.catatan}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Riwayat Pengembalian & Revalidasi (Bagian 8) */}
+        {permit.revalidations?.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Pengembalian &amp; Revalidasi</h2>
+            <ul className="text-sm text-slate-600 space-y-1">
+              {permit.revalidations.map((r) => (
+                <li key={r.id} className="border-b border-slate-100 py-1">
+                  <span className="text-slate-400">Dikembalikan:</span> {fmt(r.returned_at)} — {r.returned_by?.name ?? "-"}
+                  {r.revalidated_at && (
+                    <>
+                      {" · "}
+                      <span className="text-slate-400">Direvalidasi:</span> {fmt(r.revalidated_at)} — {r.revalidated_by?.name ?? "-"}
+                    </>
+                  )}
                 </li>
               ))}
             </ul>

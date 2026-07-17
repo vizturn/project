@@ -12,8 +12,10 @@ export const rejectPermit = (id, alasan) =>
   api.post(`/permits/${id}/reject`, { alasan });
 export const issuePermit = (id) => api.post(`/permits/${id}/issue`);
 export const addGasTest = (id, payload) => api.post(`/permits/${id}/gas-tests`, payload);
-export const returnPermit = (id) => api.post(`/permits/${id}/return`);
-export const revalidatePermit = (id) => api.post(`/permits/${id}/revalidate`);
+// Bagian 8 — Pengembalian: PA menuliskan tanggal & jam pengembalian.
+export const returnPermit = (id, payload) => api.post(`/permits/${id}/return`, payload);
+// Bagian 8 — Revalidasi: IA boleh mengoreksi tanggal & jam sebelum konfirmasi.
+export const revalidatePermit = (id, payload) => api.post(`/permits/${id}/revalidate`, payload);
 export const completePermit = (id) => api.post(`/permits/${id}/complete`);
 export const closePermit = (id) => api.post(`/permits/${id}/close`);
 export const addLiveAudit = (id, catatan) => api.post(`/permits/${id}/live-audits`, { catatan });

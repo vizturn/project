@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\AcceptPermitRequest;
 use App\Http\Requests\ApprovePermitRequest;
 use App\Http\Requests\RejectPermitRequest;
+use App\Http\Requests\ReturnPermitRequest;
+use App\Http\Requests\RevalidatePermitRequest;
 use App\Http\Requests\StorePermitRequest;
 use App\Models\Notification;
 use App\Models\Permit;
@@ -13,6 +15,7 @@ use App\Models\PermitType;
 use App\Models\PsbForm;
 use App\Models\Revalidation;
 use App\Services\PermitService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -69,7 +72,8 @@ class PermitController extends Controller
             'gasTests.agt:id,name',
             'statusHistories',
             'liveAudits.auditor:id,name',
-            'revalidations',
+            'revalidations.returnedBy:id,name',
+            'revalidations.revalidatedBy:id,name',
         ]);
 
         return response()->json(['data' => $permit]);
@@ -284,8 +288,12 @@ class PermitController extends Controller
         ]);
     }
 
-    /** S16 — PA mengembalikan izin (aktif -> ditunda). */
-    public function returnPermit(Request $request, Permit $permit)
+    /**
+     * Bagian 8 (Pengembalian) — PA mengembalikan izin (aktif -> ditunda).
+     * PA menuliskan tanggal & jam pengembalian secara manual (sesuai formulir fisik),
+     * bukan otomatis dicatat sebagai waktu saat tombol ditekan.
+     */
+    public function returnPermit(ReturnPermitRequest $request, Permit $permit)
     {
         $user = $request->user();
 
@@ -296,20 +304,31 @@ class PermitController extends Controller
             return response()->json(['message' => 'Hanya izin AKTIF yang dapat dikembalikan.'], 422);
         }
 
+        $data = $request->validated();
+        $dikembalikanPada = Carbon::createFromFormat('Y-m-d H:i', "{$data['tanggal']} {$data['jam']}");
+
         Revalidation::create([
             'permit_id'   => $permit->id,
-            'returned_at' => now(),
+            'returned_at' => $dikembalikanPada,
             'returned_by' => $user->id,
         ]);
 
         $permit->update(['status' => 'ditunda']);
-        $this->service->recordTransition($permit, 'aktif', 'ditunda', $user, 'return_permit');
+        $this->service->recordTransition(
+            $permit, 'aktif', 'ditunda', $user, 'return_permit',
+            ['returned_at' => $dikembalikanPada->toDateTimeString()]
+        );
 
         return response()->json(['message' => 'Izin dikembalikan (DITUNDA).', 'data' => $permit]);
     }
 
-    /** S16 — IA revalidasi (ditunda -> aktif). */
-    public function revalidate(Request $request, Permit $permit)
+    /**
+     * Bagian 8 (Revalidasi) — IA revalidasi (ditunda -> aktif).
+     * Form terpisah dari Pengembalian (PA): IA menentukan sendiri kapan revalidasi
+     * dilakukan (tanggal & jam), lalu mengirim keputusan itu ke PA — izin kembali AKTIF
+     * dan PA diberi tahu.
+     */
+    public function revalidate(RevalidatePermitRequest $request, Permit $permit)
     {
         $user = $request->user();
 
@@ -317,13 +336,29 @@ class PermitController extends Controller
             return response()->json(['message' => 'Hanya izin DITUNDA yang dapat direvalidasi.'], 422);
         }
 
+        $data = $request->validated();
+        $direvalidasiPada = Carbon::createFromFormat('Y-m-d H:i', "{$data['tanggal']} {$data['jam']}");
+
         $rev = $permit->revalidations()->whereNull('revalidated_at')->latest('id')->first();
         if ($rev) {
-            $rev->update(['revalidated_at' => now(), 'revalidated_by' => $user->id]);
+            $rev->update([
+                'revalidated_at' => $direvalidasiPada,
+                'revalidated_by' => $user->id,
+            ]);
         }
 
         $permit->update(['status' => 'aktif']);
-        $this->service->recordTransition($permit, 'ditunda', 'aktif', $user, 'revalidate_permit');
+        $this->service->recordTransition(
+            $permit, 'ditunda', 'aktif', $user, 'revalidate_permit',
+            ['revalidated_at' => $direvalidasiPada->toDateTimeString()]
+        );
+
+        // Kirim ke PA: izin sudah direvalidasi IA dan kembali AKTIF.
+        $this->notif(
+            $permit->performing_authority_id,
+            $permit->id,
+            "Izin {$permit->nomor_izin} telah DIREVALIDASI IA pada {$direvalidasiPada->format('d-m-Y H:i')}. Status kembali AKTIF."
+        );
 
         return response()->json(['message' => 'Izin direvalidasi (AKTIF).', 'data' => $permit]);
     }
