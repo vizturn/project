@@ -1,22 +1,25 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { getPermitTypes, getWorkOrders, getEquipment } from "../services/masterService";
 import { getUsersByRole } from "../services/userService";
-import { createPermit } from "../services/permitService";
+import { createPermit, updatePermit, getPermit } from "../services/permitService";
 import { toast } from "sonner";
-import { FilePlus2, ArrowLeft } from "lucide-react";
+import { FilePlus2, PencilLine, ArrowLeft } from "lucide-react";
 
 export default function PermitFormPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const screeningId = params.get("screening"); // opsional, dari alur penapisan
+  const { id } = useParams();            // ada => mode EDIT, tidak ada => mode CREATE
+  const isEdit = Boolean(id);
+  const screeningIdParam = params.get("screening"); // opsional, hanya dipakai saat create
 
   const [types, setTypes] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
   const [equipment, setEquipment] = useState([]);
   const [aaList, setAaList] = useState([]);
-  const [jenisDipilih, setJenisDipilih] = useState({}); // { permit_type_id: true }
   const [iaList, setIaList] = useState([]);
+  const [jenisDipilih, setJenisDipilih] = useState({}); // { permit_type_id: true }
+  const [existingScreeningId, setExistingScreeningId] = useState(null); // Opsi A: dipertahankan apa adanya saat edit
   const [form, setForm] = useState({
     lokasi: "",
     deskripsi_pekerjaan: "",
@@ -30,17 +33,57 @@ export default function PermitFormPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([getPermitTypes(), getWorkOrders(), getEquipment(), getUsersByRole("AA"), getUsersByRole("IA")])
-      .then(([t, w, e, aa, ia]) => {
+    const masters = Promise.all([
+      getPermitTypes(), getWorkOrders(), getEquipment(),
+      getUsersByRole("AA"), getUsersByRole("IA"),
+    ]);
+
+    // Saat edit, ambil juga data izin yang mau diubah.
+    const permitReq = isEdit ? getPermit(id) : Promise.resolve(null);
+
+    Promise.all([masters, permitReq])
+      .then(([[t, w, e, aa, ia], permitRes]) => {
         setTypes(t.data.data);
         setWorkOrders(w.data.data);
         setEquipment(e.data.data);
         setAaList(aa.data.data);
         setIaList(ia.data.data);
+
+        if (isEdit && permitRes) {
+          const p = permitRes.data.data;
+
+          // Guard frontend: hanya draft yang boleh diedit. Backend juga menolak,
+          // tapi ini mencegah user terlanjur mengisi form yang pasti ditolak.
+          if (p.status !== "draft") {
+            toast.error("Hanya izin berstatus draft yang dapat diubah.");
+            navigate(`/permits/${id}`, { replace: true });
+            return;
+          }
+
+          // Pre-fill form dari data lama.
+          setForm({
+            lokasi: p.lokasi ?? "",
+            deskripsi_pekerjaan: p.deskripsi_pekerjaan ?? "",
+            durasi: p.durasi ?? "",
+            wo_id: p.wo_id ?? "",
+            equipment_id: p.equipment_id ?? "",
+            approval_authority_id: p.approval_authority_id ?? "",
+            issuing_authority_id: p.issuing_authority_id ?? "",
+          });
+
+          // Centang jenis izin yang sudah ada (dari relasi permitTypes).
+          const centang = {};
+          (p.permit_types ?? p.permitTypes ?? []).forEach((pt) => { centang[pt.id] = true; });
+          setJenisDipilih(centang);
+
+          // Opsi A: screening asal dipertahankan, tidak bisa diganti saat edit.
+          setExistingScreeningId(p.screening_id ?? null);
+        }
       })
-      .catch(() => toast.error("Gagal memuat data master."))
+      .catch(() => toast.error("Gagal memuat data."))
       .finally(() => setLoading(false));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const setField = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -70,13 +113,23 @@ export default function PermitFormPage() {
         issuing_authority_id: Number(form.issuing_authority_id),
         wo_id: form.wo_id ? Number(form.wo_id) : null,
         equipment_id: form.equipment_id ? Number(form.equipment_id) : null,
-        screening_id: screeningId ? Number(screeningId) : null,
+        // Opsi A: saat edit kirim screening lama; saat create pakai dari query param.
+        screening_id: isEdit
+          ? existingScreeningId
+          : (screeningIdParam ? Number(screeningIdParam) : null),
       };
-      const res = await createPermit(payload);
-      toast.success("Pengajuan izin dibuat (draft).");
-      navigate(`/permits/${res.data.data.id}`);
+
+      if (isEdit) {
+        await updatePermit(id, payload);
+        toast.success("Izin berhasil diperbarui.");
+        navigate(`/permits/${id}`);
+      } else {
+        const res = await createPermit(payload);
+        toast.success("Pengajuan izin dibuat (draft).");
+        navigate(`/permits/${res.data.data.id}`);
+      }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Gagal membuat pengajuan.");
+      toast.error(err.response?.data?.message || "Gagal menyimpan.");
     } finally {
       setSaving(false);
     }
@@ -89,18 +142,27 @@ export default function PermitFormPage() {
   return (
     <div className="min-h-screen bg-slate-100 p-6">
       <div className="max-w-2xl mx-auto">
-        <button onClick={() => navigate("/permits")} className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4">
-          <ArrowLeft size={16} /> Daftar Izin
+        <button
+          onClick={() => navigate(isEdit ? `/permits/${id}` : "/permits")}
+          className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"
+        >
+          <ArrowLeft size={16} /> {isEdit ? "Kembali ke Detail" : "Daftar Izin"}
         </button>
 
         <div className="bg-white rounded-xl shadow p-6">
           <div className="flex items-center gap-2 mb-4">
-            <FilePlus2 className="text-emerald-600" size={22} />
-            <h1 className="text-lg font-bold text-slate-800">Pengajuan Izin Kerja</h1>
+            {isEdit ? (
+              <PencilLine className="text-emerald-600" size={22} />
+            ) : (
+              <FilePlus2 className="text-emerald-600" size={22} />
+            )}
+            <h1 className="text-lg font-bold text-slate-800">
+              {isEdit ? "Ubah Izin Kerja (Draft)" : "Pengajuan Izin Kerja"}
+            </h1>
           </div>
 
-          {screeningId && (
-            <p className="text-xs text-slate-500 mb-4">Terkait penapisan #{screeningId}</p>
+          {!isEdit && screeningIdParam && (
+            <p className="text-xs text-slate-500 mb-4">Terkait penapisan #{screeningIdParam}</p>
           )}
 
           <label className="block text-sm text-slate-600 mb-1">Jenis Izin * (boleh lebih dari satu)</label>
@@ -190,7 +252,7 @@ export default function PermitFormPage() {
           </select>
 
           <button onClick={submit} disabled={saving} className="w-full py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
-            {saving ? "Menyimpan..." : "Buat Pengajuan (Draft)"}
+            {saving ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Buat Pengajuan (Draft)"}
           </button>
         </div>
       </div>

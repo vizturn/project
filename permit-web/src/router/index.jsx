@@ -37,7 +37,10 @@ export const router = createBrowserRouter([
       { path: "/permits/:id", element: <PermitDetailPage /> },
       {
         element: <RoleRoute allow={["PA"]} />,
-        children: [{ path: "/permits/new", element: <PermitFormPage /> }],
+        children: [
+          { path: "/permits/new", element: <PermitFormPage /> },
+          { path: "/permits/:id/edit", element: <PermitFormPage /> },
+        ],
       },
 
       // Audit log & rekap: hanya SHE/ADM

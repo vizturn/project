@@ -4,6 +4,7 @@ export const getPermits = (scope) =>
   api.get("/permits", { params: scope ? { scope } : {} });
 export const getPermit = (id) => api.get(`/permits/${id}`);
 export const createPermit = (payload) => api.post("/permits", payload);
+export const updatePermit = (id, payload) => api.put(`/permits/${id}`, payload);
 export const submitPermit = (id) => api.post(`/permits/${id}/submit`);
 // psb: [{ permit_type_id, psb_type_ids: [...] }, ...]
 export const approvePermit = (id, psb) =>

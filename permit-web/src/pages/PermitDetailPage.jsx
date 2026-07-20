@@ -13,7 +13,7 @@ import WahPreparationForm from "../components/WahPreparationForm";
 import WahAccessLogForm from "../components/WahAccessLogForm";
 import { submitHazards, reviewHazards } from "../services/hazardService";
 import { toast } from "sonner";
-import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText } from "lucide-react";
+import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine } from "lucide-react";
 
 export default function PermitDetailPage() {
   const { id } = useParams();
@@ -418,7 +418,13 @@ export default function PermitDetailPage() {
         )}
 
         {/* ===== PANEL AKSI (sesuai role + status) ===== */}
-
+{/* PA ubah draft — hanya saat draft & pemilik */}
+{S === "draft" && isOwnerPA && (
+          <button onClick={() => navigate(`/permits/${id}/edit`)} disabled={busy}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-medium hover:bg-emerald-50 disabled:opacity-50 mr-2">
+            <PencilLine size={16} /> Ubah Draft
+          </button>
+        )}
         {/* S11: PA ajukan draft */}
         {S === "draft" && isOwnerPA && (
           <div className="bg-white rounded-xl shadow p-6">
