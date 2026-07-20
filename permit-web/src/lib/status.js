@@ -3,6 +3,7 @@ export const STATUS_META = {
   menunggu_approval:   { label: "Menunggu Approval",    cls: "bg-blue-100 text-blue-700" },
   disetujui:           { label: "Disetujui",            cls: "bg-indigo-100 text-indigo-700" },
   ditolak:             { label: "Ditolak",              cls: "bg-red-100 text-red-700" },
+  menunggu_persiapan_pa: { label: "Menunggu Persiapan PA", cls: "bg-fuchsia-100 text-fuchsia-700" },
   menunggu_penerbitan: { label: "Menunggu Penerbitan",  cls: "bg-cyan-100 text-cyan-700" },
   menunggu_penerimaan: { label: "Menunggu Penerimaan PA", cls: "bg-violet-100 text-violet-700" },
   aktif:               { label: "Aktif",                cls: "bg-emerald-100 text-emerald-700" },

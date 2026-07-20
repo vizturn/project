@@ -1,5 +1,10 @@
 import api from "./api";
 
+// Bagian 3 (bagian IA, khusus WAH) — keputusan Isolasi Energi + (opsional) Sertifikat Isolasi.
+// formData: FormData berisi wah_isolasi_diperlukan ("1"/"0"), wah_isolasi_cert_nomor?, wah_isolasi_cert_file?
+export const storeWahIsolation = (id, formData) =>
+  api.post(`/permits/${id}/wah-isolation`, formData);
+
 // Bagian 3 (Persiapan, khusus WAH) — PA upload JSA & (opsional) Scaffolding Certificate.
 // formData: FormData berisi nomor_jsa, jsa_file, wah_menggunakan_perancah,
 // wah_scaffolding_cert_nomor?, wah_scaffolding_cert_file?

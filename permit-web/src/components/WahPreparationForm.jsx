@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { toast } from "sonner";
 import { HardHat } from "lucide-react";
 
 /**
  * Bagian 3 — Persiapan (khusus izin WAH).
- * PA hanya mengisi JSA (nomor + file) dan, jika menggunakan perancah,
- * Scaffolding Certificate (nomor + file).
+ * PA boleh mengisi JSA (nomor + file) dan, jika menggunakan perancah,
+ * Scaffolding Certificate (nomor + file) — semua field opsional.
  */
 export default function WahPreparationForm({ onSubmit, busy }) {
   const [nomorJsa, setNomorJsa] = useState("");
@@ -15,19 +14,12 @@ export default function WahPreparationForm({ onSubmit, busy }) {
   const [scaffFile, setScaffFile] = useState(null);
 
   const kirim = () => {
-    if (!nomorJsa.trim()) { toast.error("Nomor JSA wajib diisi."); return; }
-    if (!jsaFile) { toast.error("File JSA wajib dilampirkan."); return; }
-    if (pakaiPerancah && !scaffNomor.trim()) { toast.error("Nomor Scaffolding Certificate wajib diisi."); return; }
-    if (pakaiPerancah && !scaffFile) { toast.error("File Scaffolding Certificate wajib dilampirkan."); return; }
-
     const fd = new FormData();
-    fd.append("nomor_jsa", nomorJsa);
-    fd.append("jsa_file", jsaFile);
+    if (nomorJsa.trim()) fd.append("nomor_jsa", nomorJsa);
+    if (jsaFile) fd.append("jsa_file", jsaFile);
     fd.append("wah_menggunakan_perancah", pakaiPerancah ? "1" : "0");
-    if (pakaiPerancah) {
-      fd.append("wah_scaffolding_cert_nomor", scaffNomor);
-      fd.append("wah_scaffolding_cert_file", scaffFile);
-    }
+    if (scaffNomor.trim()) fd.append("wah_scaffolding_cert_nomor", scaffNomor);
+    if (scaffFile) fd.append("wah_scaffolding_cert_file", scaffFile);
 
     onSubmit(fd);
   };
@@ -41,16 +33,16 @@ export default function WahPreparationForm({ onSubmit, busy }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm text-slate-600 mb-1">Nomor JSA *</label>
+          <label className="block text-sm text-slate-600 mb-1">Nomor JSA</label>
           <input
             value={nomorJsa}
             onChange={(e) => setNomorJsa(e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-            placeholder="mis. JSA-2026-014"
+            placeholder="mis. JSA-2026-014 (opsional)"
           />
         </div>
         <div>
-          <label className="block text-sm text-slate-600 mb-1">File JSA *</label>
+          <label className="block text-sm text-slate-600 mb-1">File JSA</label>
           <input
             type="file"
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
@@ -73,15 +65,16 @@ export default function WahPreparationForm({ onSubmit, busy }) {
       {pakaiPerancah && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-l-2 border-amber-200 pl-3">
           <div>
-            <label className="block text-sm text-slate-600 mb-1">Nomor Scaffolding Certificate *</label>
+            <label className="block text-sm text-slate-600 mb-1">Nomor Scaffolding Certificate</label>
             <input
               value={scaffNomor}
               onChange={(e) => setScaffNomor(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              placeholder="Opsional"
             />
           </div>
           <div>
-            <label className="block text-sm text-slate-600 mb-1">File Scaffolding Certificate *</label>
+            <label className="block text-sm text-slate-600 mb-1">File Scaffolding Certificate</label>
             <input
               type="file"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
