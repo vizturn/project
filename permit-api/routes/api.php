@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ScreeningController;
 use App\Http\Controllers\Api\ScreeningCriteriaController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\WahAccessLogController;
+use App\Http\Controllers\Api\WahPreparationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/ping', function () {
@@ -48,6 +50,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('/permits/{permit}', [PermitController::class, 'show']);
     Route::get('/permits/{permit}/gas-tests', [GasTestController::class, 'index']);
     Route::get('/permits/{permit}/live-audits', [LiveAuditController::class, 'index']);
+    // Bagian 7 (khusus WAH) — riwayat naik/turun
+    Route::get('/permits/{permit}/wah-access-logs', [WahAccessLogController::class, 'index']);
 
     // STEP 26 — master daftar bahaya (Bagian 3), dikelompokkan per jenis izin
     Route::get('/permits/{permit}/hazard-options', [HazardController::class, 'options']);
@@ -58,6 +62,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/permits/{permit}/return', [PermitController::class, 'returnPermit']);
         Route::post('/permits/{permit}/complete', [PermitController::class, 'complete']);
         Route::post('/permits/{permit}/hazards', [HazardController::class, 'store']);
+        // Bagian 3 (khusus WAH) — Persiapan: JSA + (opsional) Scaffolding Certificate
+        Route::post('/permits/{permit}/wah-preparation', [WahPreparationController::class, 'store']);
+        // Bagian 7 (khusus WAH) — catat naik/turun (boleh berkali-kali saat AKTIF)
+        Route::post('/permits/{permit}/wah-access-logs', [WahAccessLogController::class, 'store']);
         // STEP 27 — Bagian 7: Penerimaan PTW oleh PA (menunggu_penerimaan -> aktif)
         Route::post('/permits/{permit}/accept', [PermitController::class, 'accept']);
     });

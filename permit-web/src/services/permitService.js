@@ -10,7 +10,8 @@ export const approvePermit = (id, psb) =>
   api.post(`/permits/${id}/approve`, { psb });
 export const rejectPermit = (id, alasan) =>
   api.post(`/permits/${id}/reject`, { alasan });
-export const issuePermit = (id) => api.post(`/permits/${id}/issue`);
+// Bagian 5/6 — Penerbitan (IA). payload opsional { tanggal, jam } khusus WAH; kosongkan untuk jenis lain (now() otomatis).
+export const issuePermit = (id, payload = {}) => api.post(`/permits/${id}/issue`, payload);
 export const addGasTest = (id, payload) => api.post(`/permits/${id}/gas-tests`, payload);
 // Bagian 8 — Pengembalian: PA menuliskan tanggal & jam pengembalian.
 export const returnPermit = (id, payload) => api.post(`/permits/${id}/return`, payload);
@@ -28,6 +29,7 @@ export const storeReferences = (id, payload) =>
 export const storeGasRequirement = (id, payload) =>
   api.post(`/permits/${id}/gas-requirement`, payload);
 
-// STEP 27 — Bagian 7: Penerimaan PTW oleh PA (menunggu_penerimaan -> aktif)
-export const acceptPermit = (id) =>
-  api.post(`/permits/${id}/accept`, { pernyataan: true });
+// STEP 27 — Bagian 6/7: Penerimaan PTW oleh PA (menunggu_penerimaan -> aktif)
+// payload opsional { tanggal, jam } khusus WAH; kosongkan untuk jenis lain (now() otomatis).
+export const acceptPermit = (id, payload = {}) =>
+  api.post(`/permits/${id}/accept`, { pernyataan: true, ...payload });

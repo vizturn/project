@@ -2,15 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit } from "../services/permitService";
 import { getPsbTypes } from "../services/masterService";
+import { storeWahPreparation, addWahAccessLog, wahFileUrl } from "../services/wahService";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/StatusBadge";
 import HazardForm from "../components/HazardForm";
 import ReferenceForm from "../components/ReferenceForm";
 import GasRequirementForm from "../components/GasRequirementForm";
 import GasResultForm from "../components/GasResultForm";
+import WahPreparationForm from "../components/WahPreparationForm";
+import WahAccessLogForm from "../components/WahAccessLogForm";
 import { submitHazards, reviewHazards } from "../services/hazardService";
 import { toast } from "sonner";
-import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck } from "lucide-react";
+import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText } from "lucide-react";
 
 export default function PermitDetailPage() {
   const { id } = useParams();
@@ -34,6 +37,12 @@ export default function PermitDetailPage() {
   const [jamKembali, setJamKembali] = useState("");
   const [tglRevalidasi, setTglRevalidasi] = useState("");
   const [jamRevalidasi, setJamRevalidasi] = useState("");
+
+  // Bagian 5/6 (khusus WAH) — Penerbitan (IA) & Penerimaan (PA): tanggal & jam manual.
+  const [tglTerbit, setTglTerbit] = useState("");
+  const [jamTerbit, setJamTerbit] = useState("");
+  const [tglTerima, setTglTerima] = useState("");
+  const [jamTerima, setJamTerima] = useState("");
 
   const load = useCallback(() => {
     getPermit(id)
@@ -67,8 +76,28 @@ export default function PermitDetailPage() {
       setTglRevalidasi(toDateInput(now));
       setJamRevalidasi(toTimeInput(now));
     }
+
+    if (permit.status === "menunggu_penerbitan" && !tglTerbit) {
+      const now = new Date();
+      setTglTerbit(toDateInput(now));
+      setJamTerbit(toTimeInput(now));
+    }
+
+    if (permit.status === "menunggu_penerimaan" && !tglTerima) {
+      const now = new Date();
+      setTglTerima(toDateInput(now));
+      setJamTerima(toTimeInput(now));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [permit?.status]);
+
+  // Daftar jenis izin yang tercakup (fallback ke jenis utama untuk izin lama).
+  const jenisIzin = permit?.permit_types?.length
+    ? permit.permit_types
+    : permit?.permit_type
+      ? [permit.permit_type]
+      : [];
+  const isWAH = jenisIzin.some((t) => t.kode === "WAH");
 
   const isOwnerPA = permit && Number(user?.id) === Number(permit.performing_authority_id);
 
@@ -89,13 +118,6 @@ export default function PermitDetailPage() {
       setBusy(false);
     }
   };
-
-  // Daftar jenis izin yang tercakup (fallback ke jenis utama untuk izin lama).
-  const jenisIzin = permit?.permit_types?.length
-    ? permit.permit_types
-    : permit?.permit_type
-      ? [permit.permit_type]
-      : [];
 
   const togglePsb = (typeId, psbId) =>
     setSelectedPsb((prev) => ({
@@ -129,6 +151,48 @@ export default function PermitDetailPage() {
   const doRevalidate = () => {
     if (!tglRevalidasi || !jamRevalidasi) { toast.error("Tanggal & jam revalidasi wajib diisi."); return; }
     run(() => revalidatePermit(id, { tanggal: tglRevalidasi, jam: jamRevalidasi }), "Revalidasi dikirim ke PA. Izin AKTIF kembali.");
+  };
+
+  // Bagian 5 (khusus WAH) — IA menulis tanggal & jam penerbitan secara manual.
+  const doIssue = () => {
+    if (isWAH) {
+      if (!tglTerbit || !jamTerbit) { toast.error("Tanggal & jam penerbitan wajib diisi."); return; }
+      run(() => issuePermit(id, { tanggal: tglTerbit, jam: jamTerbit }), "Izin diterbitkan.");
+      return;
+    }
+    run(() => issuePermit(id), "Izin diterbitkan.");
+  };
+
+  // Bagian 6 (khusus WAH) — PA menulis tanggal & jam penerimaan secara manual.
+  const doAccept = () => {
+    if (!setuju) { toast.error("Centang pernyataan penerimaan terlebih dahulu."); return; }
+    if (isWAH) {
+      if (!tglTerima || !jamTerima) { toast.error("Tanggal & jam penerimaan wajib diisi."); return; }
+      run(() => acceptPermit(id, { tanggal: tglTerima, jam: jamTerima }), "PTW diterima. Izin AKTIF.");
+      return;
+    }
+    run(() => acceptPermit(id), "PTW diterima. Izin AKTIF.");
+  };
+
+  // Bagian 3 (khusus WAH) — PA upload JSA & (opsional) Scaffolding Certificate.
+  const doWahPreparation = (formData) =>
+    run(() => storeWahPreparation(id, formData), "Persiapan WAH tersimpan. Menunggu Penerbitan.");
+
+  // Bagian 7 (khusus WAH) — PA mencatat naik/turun (boleh berkali-kali).
+  const doWahAccessLog = (payload, onSuccess) => {
+    setBusy(true);
+    addWahAccessLog(id, payload)
+      .then((res) => {
+        toast.success(res.data?.message || "Catatan naik/turun tersimpan.");
+        onSuccess?.();
+        load();
+      })
+      .catch((err) => {
+        const data = err.response?.data;
+        const pesanValidasi = data?.errors ? Object.values(data.errors).flat().join(" ") : null;
+        toast.error(pesanValidasi || data?.message || "Gagal menyimpan.");
+      })
+      .finally(() => setBusy(false));
   };
 
   const doGasTest = () => {
@@ -214,6 +278,39 @@ export default function PermitDetailPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Bagian 3 tersimpan (read-only, khusus WAH) */}
+        {permit.wah_persiapan_diisi_at && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="text-amber-600" size={18} />
+              <h2 className="font-semibold text-slate-800">Persiapan — JSA & Scaffolding (Bagian 3)</h2>
+            </div>
+            <dl className="text-sm text-slate-600 space-y-1">
+              <div>
+                <span className="font-medium">Nomor JSA:</span> {permit.nomor_jsa || "-"}
+                {permit.jsa_file_path && (
+                  <a href={wahFileUrl(permit.jsa_file_path)} target="_blank" rel="noreferrer"
+                    className="ml-2 text-blue-600 hover:underline">Lihat file</a>
+                )}
+              </div>
+              <div>
+                <span className="font-medium">Menggunakan perancah:</span>{" "}
+                {permit.wah_menggunakan_perancah ? "Ya" : "Tidak"}
+              </div>
+              {permit.wah_menggunakan_perancah && (
+                <div>
+                  <span className="font-medium">Scaffolding Certificate:</span>{" "}
+                  {permit.wah_scaffolding_cert_nomor || "-"}
+                  {permit.wah_scaffolding_cert_file_path && (
+                    <a href={wahFileUrl(permit.wah_scaffolding_cert_file_path)} target="_blank" rel="noreferrer"
+                      className="ml-2 text-blue-600 hover:underline">Lihat file</a>
+                  )}
+                </div>
+              )}
+            </dl>
           </div>
         )}
 
@@ -391,8 +488,15 @@ export default function PermitDetailPage() {
           </div>
         )}
 
+        {/* Bagian 3 (khusus WAH): PA mengisi JSA + Scaffolding Certificate (saat disetujui) */}
+        {S === "disetujui" && isOwnerPA && isWAH && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <WahPreparationForm busy={busy} onSubmit={doWahPreparation} />
+          </div>
+        )}
+
         {/* Bagian 3: PA melengkapi Identifikasi Bahaya (saat disetujui) */}
-        {S === "disetujui" && isOwnerPA && (
+        {S === "disetujui" && isOwnerPA && !isWAH && (
           <div className="bg-white rounded-xl shadow p-6">
             <HazardForm
               permit={permit}
@@ -405,8 +509,8 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* Bagian 3: IA memeriksa & boleh MENAMBAH/MENGHAPUS bahaya (saat menunggu penerbitan) */}
-        {S === "menunggu_penerbitan" && hasRole("IA") && (
+        {/* Bagian 3: IA memeriksa & boleh MENAMBAH/MENGHAPUS bahaya (saat menunggu penerbitan) — tidak berlaku untuk WAH */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && !isWAH && (
           <div className="bg-white rounded-xl shadow p-6">
             <HazardForm
               permit={permit}
@@ -419,8 +523,8 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* STEP 27 — Bagian 4: Referensi Pendukung (IA) */}
-        {S === "menunggu_penerbitan" && hasRole("IA") && (
+        {/* STEP 27 — Bagian 4: Referensi Pendukung (IA) — tidak berlaku untuk WAH */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && !isWAH && (
           <div className="bg-white rounded-xl shadow p-6">
             <ReferenceForm
               awal={permit}
@@ -430,8 +534,8 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* STEP 27 — Bagian 5: Penetapan pengujian gas (IA) */}
-        {S === "menunggu_penerbitan" && hasRole("IA") && (
+        {/* STEP 27 — Bagian 5: Penetapan pengujian gas (IA) — tidak berlaku untuk WAH */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && !isWAH && (
           <div className="bg-white rounded-xl shadow p-6">
             <GasRequirementForm
               awal={permit}
@@ -441,8 +545,8 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* STEP 27 — Hasil uji gas: boleh diisi IA maupun AGT */}
-        {S === "menunggu_penerbitan" && (hasRole("IA") || hasRole("AGT")) && (
+        {/* STEP 27 — Hasil uji gas: boleh diisi IA maupun AGT — tidak berlaku untuk WAH */}
+        {S === "menunggu_penerbitan" && (hasRole("IA") || hasRole("AGT")) && !isWAH && (
           <div className="bg-white rounded-xl shadow p-6">
             <GasResultForm
               busy={busy}
@@ -454,28 +558,44 @@ export default function PermitDetailPage() {
         {/* S14: IA terbitkan (setelah PA melengkapi Bagian 3) */}
         {S === "menunggu_penerbitan" && hasRole("IA") && (
           <div className="bg-white rounded-xl shadow p-6 space-y-2">
-            <h2 className="font-semibold text-slate-800">Bagian 6 — Penerbitan (IA)</h2>
+            <h2 className="font-semibold text-slate-800">{isWAH ? "Bagian 5 — Penerbitan (IA)" : "Bagian 6 — Penerbitan (IA)"}</h2>
             <p className="text-sm text-slate-500">
               Saya, IA, menyatakan semua bahaya telah diidentifikasi, semua tindakan pencegahan telah
               dilakukan, dan kondisi aman untuk melaksanakan pekerjaan.
             </p>
-            <ul className="text-xs text-slate-500 list-disc pl-5 space-y-0.5">
-              <li>Bagian 4 (Referensi Pendukung) {permit.referensi_diisi_at ? "sudah diisi" : "BELUM diisi — wajib"}</li>
-              <li>Masa berlaku 72 jam dihitung sejak penerbitan.</li>
-            </ul>
-            <button onClick={() => run(() => issuePermit(id), "Izin diterbitkan.")} disabled={busy}
+            {!isWAH && (
+              <ul className="text-xs text-slate-500 list-disc pl-5 space-y-0.5">
+                <li>Bagian 4 (Referensi Pendukung) {permit.referensi_diisi_at ? "sudah diisi" : "BELUM diisi — wajib"}</li>
+                <li>Masa berlaku 72 jam dihitung sejak penerbitan.</li>
+              </ul>
+            )}
+            {isWAH && (
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="text-sm text-slate-600">
+                  Tanggal Penerbitan
+                  <input type="date" value={tglTerbit} onChange={(e) => setTglTerbit(e.target.value)}
+                    className="block px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                </label>
+                <label className="text-sm text-slate-600">
+                  Jam Penerbitan
+                  <input type="time" value={jamTerbit} onChange={(e) => setJamTerbit(e.target.value)}
+                    className="block px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                </label>
+              </div>
+            )}
+            <button onClick={doIssue} disabled={busy}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
               <FileCheck2 size={16} /> Terbitkan Izin
             </button>
           </div>
         )}
 
-        {/* STEP 27 — Bagian 7: Penerimaan PTW oleh PA */}
+        {/* STEP 27 — Bagian 6/7: Penerimaan PTW oleh PA */}
         {S === "menunggu_penerimaan" && isOwnerPA && (
           <div className="bg-white rounded-xl shadow p-6 space-y-3">
             <div className="flex items-center gap-2">
               <ClipboardCheck className="text-violet-600" size={18} />
-              <h2 className="font-semibold text-slate-800">Bagian 7 — Penerimaan PTW (PA)</h2>
+              <h2 className="font-semibold text-slate-800">{isWAH ? "Bagian 6 — Penerimaan (PA)" : "Bagian 7 — Penerimaan PTW (PA)"}</h2>
             </div>
             <p className="text-sm text-slate-600">
               Saya, PA, telah membaca dan memahami semua kondisi dalam PTW ini beserta lampirannya.
@@ -483,6 +603,20 @@ export default function PermitDetailPage() {
               pekerjaan dan segera memberitahukan kepada IA jika kondisi tidak aman atau jika kondisi
               dalam PTW ini berubah.
             </p>
+            {isWAH && (
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="text-sm text-slate-600">
+                  Tanggal Penerimaan
+                  <input type="date" value={tglTerima} onChange={(e) => setTglTerima(e.target.value)}
+                    className="block px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                </label>
+                <label className="text-sm text-slate-600">
+                  Jam Penerimaan
+                  <input type="time" value={jamTerima} onChange={(e) => setJamTerima(e.target.value)}
+                    className="block px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                </label>
+              </div>
+            )}
             <label className="flex items-start gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
@@ -493,18 +627,19 @@ export default function PermitDetailPage() {
               Saya menyatakan telah membaca, memahami, dan menerima PTW ini.
             </label>
             <button
-              onClick={() => {
-                if (!setuju) {
-                  toast.error("Centang pernyataan penerimaan terlebih dahulu.");
-                  return;
-                }
-                run(() => acceptPermit(id), "PTW diterima. Izin AKTIF.");
-              }}
+              onClick={doAccept}
               disabled={busy}
               className="px-4 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-50"
             >
               Terima PTW & Aktifkan
             </button>
+          </div>
+        )}
+
+        {/* Bagian 7 (khusus WAH): PA catat naik/turun (saat aktif) */}
+        {S === "aktif" && isOwnerPA && isWAH && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <WahAccessLogForm busy={busy} onSubmit={doWahAccessLog} />
           </div>
         )}
 
@@ -597,6 +732,24 @@ export default function PermitDetailPage() {
                 <li key={a.id} className="border-b border-slate-100 py-1">
                   <span className="text-slate-400">{a.tanggal} {a.jam}</span> — {a.auditor?.name ?? "-"}
                   {a.catatan ? `: ${a.catatan}` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Riwayat naik/turun (khusus WAH) */}
+        {permit.wah_access_logs?.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Naik/Turun (Bagian 7 — WAH)</h2>
+            <ul className="text-sm text-slate-600 space-y-1">
+              {permit.wah_access_logs.map((l) => (
+                <li key={l.id} className="border-b border-slate-100 py-1">
+                  <span className="text-slate-400">{l.tanggal}</span>{" "}
+                  {l.jam_naik && <>· Naik {l.jam_naik}</>}
+                  {l.jam_turun && <>· Turun {l.jam_turun}</>}
+                  {" — "}{l.dicatat_oleh?.name ?? "-"}
+                  {l.catatan ? `: ${l.catatan}` : ""}
                 </li>
               ))}
             </ul>

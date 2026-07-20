@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\HasPermitNotifications;
 use App\Http\Requests\AcceptPermitRequest;
 use App\Http\Requests\ApprovePermitRequest;
+use App\Http\Requests\IssuePermitRequest;
 use App\Http\Requests\RejectPermitRequest;
 use App\Http\Requests\ReturnPermitRequest;
 use App\Http\Requests\RevalidatePermitRequest;
@@ -21,6 +23,8 @@ use Illuminate\Support\Facades\DB;
 
 class PermitController extends Controller
 {
+    use HasPermitNotifications;
+
     public function __construct(private PermitService $service)
     {
     }
@@ -74,6 +78,7 @@ class PermitController extends Controller
             'liveAudits.auditor:id,name',
             'revalidations.returnedBy:id,name',
             'revalidations.revalidatedBy:id,name',
+            'wahAccessLogs.dicatatOleh:id,name',
         ]);
 
         return response()->json(['data' => $permit]);
@@ -234,14 +239,14 @@ class PermitController extends Controller
     }
 
     /** S14 — IA menerbitkan (disetujui -> aktif). */
-    public function issue(Request $request, Permit $permit)
+    public function issue(IssuePermitRequest $request, Permit $permit)
     {
         $user = $request->user();
 
-        // STEP 26 — penerbitan hanya setelah PA melengkapi Identifikasi Bahaya (Bagian 3).
+        // STEP 26 — penerbitan hanya setelah PA melengkapi Persiapan/Identifikasi Bahaya (Bagian 3).
         if ($permit->status !== 'menunggu_penerbitan') {
             return response()->json([
-                'message' => 'Izin hanya dapat diterbitkan setelah PA melengkapi identifikasi bahaya (Bagian 3).',
+                'message' => 'Izin hanya dapat diterbitkan setelah PA melengkapi Bagian 3.',
             ], 422);
         }
 
@@ -249,8 +254,9 @@ class PermitController extends Controller
             return response()->json(['message' => 'Izin ini ditujukan kepada Issuing Authority lain.'], 403);
         }
 
-        // STEP 27 — Bagian 4 (Referensi Pendukung) WAJIB diisi sebelum penerbitan.
-        if ($permit->referensi_diisi_at === null) {
+        // STEP 27 — Bagian 4 (Referensi Pendukung) WAJIB diisi sebelum penerbitan,
+        // TAPI hanya untuk HWP/CWP. WAH (dan CSE) tidak punya Bagian 4 di formulirnya.
+        if ($this->service->butuhReferensiPendukung($permit) && $permit->referensi_diisi_at === null) {
             return response()->json([
                 'message' => 'Bagian 4 (Referensi Pendukung) wajib dilengkapi sebelum penerbitan.',
             ], 422);
@@ -260,7 +266,13 @@ class PermitController extends Controller
         // Hasil pengukuran hanya dicatat; penilaian kondisi aman adalah wewenang IA
         // (pernyataan Bagian 6). Uji gas sepenuhnya opsional.
 
-        $now      = now();
+        $data = $request->validated();
+
+        // WAH: IA menulis tanggal & jam penerbitan secara manual (Bagian 5).
+        // Jenis lain: tetap otomatis waktu saat tombol ditekan (perilaku lama, tak berubah).
+        $now = isset($data['tanggal'], $data['jam'])
+            ? Carbon::createFromFormat('Y-m-d H:i', "{$data['tanggal']} {$data['jam']}")
+            : now();
         $kadaluar = $now->copy()->addHours(72);
 
         // Masa berlaku dihitung sejak PENERBITAN (sesuai formulir: "Berlaku tanggal ... s.d.").
@@ -279,7 +291,7 @@ class PermitController extends Controller
         $this->notif(
             $permit->performing_authority_id,
             $permit->id,
-            "Izin {$permit->nomor_izin} telah DITERBITKAN. Silakan lakukan Penerimaan PTW (Bagian 7)."
+            "Izin {$permit->nomor_izin} telah DITERBITKAN. Silakan lakukan Penerimaan PTW."
         );
 
         return response()->json([
@@ -414,9 +426,17 @@ class PermitController extends Controller
             ], 422);
         }
 
+        $data = $request->validated();
+
+        // WAH: PA menulis tanggal & jam penerimaan secara manual (Bagian 6).
+        // Jenis lain: tetap otomatis waktu saat tombol ditekan (perilaku lama, tak berubah).
+        $diterimaPada = isset($data['tanggal'], $data['jam'])
+            ? Carbon::createFromFormat('Y-m-d H:i', "{$data['tanggal']} {$data['jam']}")
+            : now();
+
         $permit->update([
             'status'         => 'aktif',
-            'diterima_pa_at' => now(),
+            'diterima_pa_at' => $diterimaPada,
         ]);
 
         $this->service->recordTransition(
@@ -432,35 +452,6 @@ class PermitController extends Controller
         return response()->json([
             'message' => 'PTW diterima. Izin berstatus AKTIF.',
             'data'    => $permit,
-        ]);
-    }
-
-    /**
-     * Cek apakah user berhak menangani izin yang ditugaskan kepadanya.
-     * Kompatibel mundur: izin lama (sebelum fitur penugasan) bernilai null
-     * -> siapa pun pemegang peran tersebut boleh memprosesnya.
-     */
-    private function ditugaskan(?int $ditugaskanKe, int $userId): bool
-    {
-        if ($ditugaskanKe === null) {
-            return true;
-        }
-
-        return (int) $ditugaskanKe === (int) $userId;
-    }
-
-    /** Kirim notifikasi ke satu pengguna (diabaikan bila target kosong). */
-    private function notif(?int $userId, int $permitId, string $pesan): void
-    {
-        if (! $userId) {
-            return;
-        }
-
-        Notification::create([
-            'user_id'   => $userId,
-            'permit_id' => $permitId,
-            'pesan'     => $pesan,
-            'dibaca'    => false,
         ]);
     }
 }

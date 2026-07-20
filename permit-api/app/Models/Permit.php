@@ -26,6 +26,11 @@ class Permit extends Model
         'deskripsi_pekerjaan',
         'durasi',
         'nomor_jsa',
+        'jsa_file_path',
+        'wah_menggunakan_perancah',
+        'wah_scaffolding_cert_nomor',
+        'wah_scaffolding_cert_file_path',
+        'wah_persiapan_diisi_at',
         'tingkat_risiko',
         'bahaya_lainnya',
         'ref_permit_cse',
@@ -59,6 +64,9 @@ class Permit extends Model
             'gas_uji_flammable'  => 'boolean',
             'gas_uji_oksigen'    => 'boolean',
             'gas_uji_beracun'    => 'boolean',
+            // Bagian 3 (Persiapan) khusus WAH
+            'wah_menggunakan_perancah' => 'boolean',
+            'wah_persiapan_diisi_at'   => 'datetime',
         ];
     }
 
@@ -181,6 +189,12 @@ class Permit extends Model
     public function standbyLogs(): HasMany
     {
         return $this->hasMany(StandbyLog::class);
+    }
+
+    /** Riwayat naik/turun PA untuk izin WAH (Bagian 7). */
+    public function wahAccessLogs(): HasMany
+    {
+        return $this->hasMany(WahAccessLog::class);
     }
 
     public function statusHistories(): HasMany

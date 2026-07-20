@@ -46,7 +46,8 @@ class PermitService
         return $prefix . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
     }
 
-    public function butuhReferensiPendukung(Permit $permit): bool
+    /** Kumpulan kode jenis izin (HWP, CWP, CSE, WAH) yang melekat pada satu izin. */
+    public function jenisIzin(Permit $permit): \Illuminate\Support\Collection
     {
         $kode = $permit->permitTypes()->pluck('permit_types.kode');
 
@@ -55,7 +56,23 @@ class PermitService
             $kode = collect([$permit->permitType->kode]);
         }
 
-        return $kode->intersect(['HWP', 'CWP'])->isNotEmpty();
+        return $kode;
+    }
+
+    public function butuhReferensiPendukung(Permit $permit): bool
+    {
+        return $this->jenisIzin($permit)->intersect(['HWP', 'CWP'])->isNotEmpty();
+    }
+
+    /**
+     * WAH (Work at Height) punya alur Bagian 3/5/6/7 yang berbeda dari
+     * HWP/CWP/CSE: Persiapan berupa JSA+Scaffolding file (bukan checklist
+     * bahaya), Referensi Pendukung (Bagian 4) tidak wajib, dan Penerbitan/
+     * Penerimaan diisi tanggal & jam manual oleh IA/PA.
+     */
+    public function isWah(Permit $permit): bool
+    {
+        return $this->jenisIzin($permit)->contains('WAH');
     }
 
     public function recordTransition(
