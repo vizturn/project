@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit } from "../services/permitService";
 import { getPsbTypes } from "../services/masterService";
-import { storeWahPreparation, addWahAccessLog, wahFileUrl } from "../services/wahService";
+import { storeWahIsolation, storeWahPreparation, addWahAccessLog, wahFileUrl } from "../services/wahService";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/StatusBadge";
 import HazardForm from "../components/HazardForm";
 import ReferenceForm from "../components/ReferenceForm";
 import GasRequirementForm from "../components/GasRequirementForm";
 import GasResultForm from "../components/GasResultForm";
+import WahIsolationForm from "../components/WahIsolationForm";
 import WahPreparationForm from "../components/WahPreparationForm";
 import WahAccessLogForm from "../components/WahAccessLogForm";
 import { submitHazards, reviewHazards } from "../services/hazardService";
@@ -174,6 +175,10 @@ export default function PermitDetailPage() {
     run(() => acceptPermit(id), "PTW diterima. Izin AKTIF.");
   };
 
+  // Bagian 3 (khusus WAH) — IA menentukan kebutuhan Isolasi Energi.
+  const doWahIsolation = (formData) =>
+    run(() => storeWahIsolation(id, formData), "Evaluasi Isolasi Energi tersimpan. Menunggu Persiapan PA.");
+
   // Bagian 3 (khusus WAH) — PA upload JSA & (opsional) Scaffolding Certificate.
   const doWahPreparation = (formData) =>
     run(() => storeWahPreparation(id, formData), "Persiapan WAH tersimpan. Menunggu Penerbitan.");
@@ -278,6 +283,32 @@ export default function PermitDetailPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Bagian 3 tersimpan (read-only, khusus WAH) — bagian IA: Isolasi Energi */}
+        {permit.wah_isolasi_diisi_at && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="text-indigo-600" size={18} />
+              <h2 className="font-semibold text-slate-800">Evaluasi Isolasi Energi (Bagian 3 — IA)</h2>
+            </div>
+            <dl className="text-sm text-slate-600 space-y-1">
+              <div>
+                <span className="font-medium">Isolasi Energi:</span>{" "}
+                {permit.wah_isolasi_diperlukan ? "Diperlukan" : "Tidak diperlukan"}
+              </div>
+              {permit.wah_isolasi_diperlukan && (
+                <div>
+                  <span className="font-medium">Sertifikat Isolasi:</span>{" "}
+                  {permit.wah_isolasi_cert_nomor || "-"}
+                  {permit.wah_isolasi_cert_file_path && (
+                    <a href={wahFileUrl(permit.wah_isolasi_cert_file_path)} target="_blank" rel="noreferrer"
+                      className="ml-2 text-blue-600 hover:underline">Lihat file</a>
+                  )}
+                </div>
+              )}
+            </dl>
           </div>
         )}
 
@@ -488,8 +519,15 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* Bagian 3 (khusus WAH): PA mengisi JSA + Scaffolding Certificate (saat disetujui) */}
-        {S === "disetujui" && isOwnerPA && isWAH && (
+        {/* Bagian 3 (khusus WAH), langkah 1: IA menentukan kebutuhan Isolasi Energi (saat disetujui) */}
+        {S === "disetujui" && hasRole("IA") && isWAH && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <WahIsolationForm busy={busy} onSubmit={doWahIsolation} />
+          </div>
+        )}
+
+        {/* Bagian 3 (khusus WAH), langkah 2: PA mengisi JSA + Scaffolding Certificate (setelah IA selesai) */}
+        {S === "menunggu_persiapan_pa" && isOwnerPA && isWAH && (
           <div className="bg-white rounded-xl shadow p-6">
             <WahPreparationForm busy={busy} onSubmit={doWahPreparation} />
           </div>
