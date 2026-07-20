@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ScreeningController;
 use App\Http\Controllers\Api\ScreeningCriteriaController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WahAccessLogController;
+use App\Http\Controllers\Api\WahIsolationController;
 use App\Http\Controllers\Api\WahPreparationController;
 use Illuminate\Support\Facades\Route;
 
@@ -79,6 +80,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     });
     Route::middleware('role:IA')->group(function () {
         Route::put('/permits/{permit}/hazards', [HazardController::class, 'update']);
+        // Bagian 3 (khusus WAH) — bagian IA: keputusan Isolasi Energi
+        Route::post('/permits/{permit}/wah-isolation', [WahIsolationController::class, 'store']);
         // STEP 27 — Bagian 4 (Referensi Pendukung) & Bagian 5 (Penetapan Uji Gas)
         Route::post('/permits/{permit}/references', [IssuancePrepController::class, 'storeReferences']);
         Route::post('/permits/{permit}/gas-requirement', [IssuancePrepController::class, 'storeGasRequirement']);
