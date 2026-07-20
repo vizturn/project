@@ -11,6 +11,7 @@ use App\Http\Requests\RejectPermitRequest;
 use App\Http\Requests\ReturnPermitRequest;
 use App\Http\Requests\RevalidatePermitRequest;
 use App\Http\Requests\StorePermitRequest;
+use App\Http\Requests\UpdatePermitRequest;
 use App\Models\Notification;
 use App\Models\Permit;
 use App\Models\PermitType;
@@ -124,6 +125,60 @@ class PermitController extends Controller
             'message' => 'Pengajuan izin dibuat (draft).',
             'data'    => $permit->load('permitTypes'),
         ], 201);
+    }
+    /**
+     * Mengubah isi izin yang masih draft. Hanya PA pemilik, hanya saat draft.
+     * Setelah di-submit, isi terkunci (AA/IA sudah/sedang menilai) — perubahan
+     * harus lewat reject atau cancel, bukan edit diam-diam.
+     */
+    public function update(UpdatePermitRequest $request, Permit $permit)
+    {
+        $user = $request->user();
+
+        // Guard 1 — hanya PA pemilik izin ini.
+        if ((int) $permit->performing_authority_id !== (int) $user->id) {
+            return response()->json(['message' => 'Hanya PA pemilik yang dapat mengubah izin ini.'], 403);
+        }
+
+        // Guard 2 — hanya saat draft. Begitu diajukan, isi terkunci.
+        if ($permit->status !== 'draft') {
+            return response()->json(['message' => 'Izin hanya dapat diubah selama masih draft.'], 422);
+        }
+
+        $data = $request->validated();
+
+        $permit = DB::transaction(function () use ($permit, $user, $data) {
+            $types = PermitType::whereIn('id', $data['permit_type_ids'])->get();
+
+            $permit->update([
+                // Jenis izin bisa berubah → nomor izin di-generate ulang agar tetap konsisten.
+                'nomor_izin'            => $this->service->generateNomorIzin($types),
+                'permit_type_id'        => $types->first()->id,
+                'screening_id'          => $data['screening_id'] ?? null,
+                'approval_authority_id' => $data['approval_authority_id'],
+                'issuing_authority_id'  => $data['issuing_authority_id'],
+                'wo_id'                 => $data['wo_id'] ?? null,
+                'equipment_id'          => $data['equipment_id'] ?? null,
+                'lokasi'                => $data['lokasi'],
+                'deskripsi_pekerjaan'   => $data['deskripsi_pekerjaan'],
+                'durasi'                => $data['durasi'] ?? null,
+            ]);
+
+            $permit->permitTypes()->sync($types->pluck('id')->all());
+
+            // Catat sebagai jejak audit — status tidak berubah (draft -> draft), aksi 'update_permit'.
+            $this->service->recordTransition(
+                $permit, 'draft', 'draft', $user, 'update_permit',
+                ['permit_type_ids' => $types->pluck('id')->all()]
+            );
+
+            return $permit;
+        });
+
+        return response()->json([
+            'message' => 'Izin berhasil diperbarui.',
+            'data'    => $permit->load('permitTypes'),
+        ]);
     }
 
     /** S11 — PA mengajukan (draft -> menunggu_approval). */

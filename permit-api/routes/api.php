@@ -59,6 +59,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     Route::middleware('role:PA')->group(function () {
         Route::post('/permits', [PermitController::class, 'store']);
+        Route::put('/permits/{permit}', [PermitController::class, 'update']);
         Route::post('/permits/{permit}/submit', [PermitController::class, 'submit']);
         Route::post('/permits/{permit}/return', [PermitController::class, 'returnPermit']);
         Route::post('/permits/{permit}/complete', [PermitController::class, 'complete']);
