@@ -6,7 +6,9 @@ use App\Http\Controllers\Api\Concerns\HasPermitNotifications;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWahPreparationRequest;
 use App\Models\Permit;
+use App\Models\PermitPersonnel;
 use App\Services\PermitService;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Bagian 3 — Persiapan (bagian PA, khusus WAH).
@@ -47,27 +49,62 @@ class WahPreparationController extends Controller
             ? $request->file('wah_scaffolding_cert_file')->store('wah/scaffolding/' . $permit->id, 'public')
             : null;
 
-        $permit->update([
-            'nomor_jsa'                      => $data['nomor_jsa'] ?? null,
-            'jsa_file_path'                   => $jsaPath,
-            'wah_menggunakan_perancah'        => $request->boolean('wah_menggunakan_perancah'),
-            'wah_scaffolding_cert_nomor'      => $data['wah_scaffolding_cert_nomor'] ?? null,
-            'wah_scaffolding_cert_file_path'  => $scaffoldingPath,
-            'wah_persiapan_diisi_at'          => now(),
-            'status'                          => 'menunggu_penerbitan',
-        ]);
+        DB::transaction(function () use ($permit, $user, $data, $request, $jsaPath, $scaffoldingPath) {
+            $permit->update([
+                'nomor_jsa'                      => $data['nomor_jsa'] ?? null,
+                'jsa_file_path'                   => $jsaPath,
+                'wah_menggunakan_perancah'        => $request->boolean('wah_menggunakan_perancah'),
+                'wah_scaffolding_cert_nomor'      => $data['wah_scaffolding_cert_nomor'] ?? null,
+                'wah_scaffolding_cert_file_path'  => $scaffoldingPath,
 
-        $this->service->recordTransition(
-            $permit, 'menunggu_persiapan_pa', 'menunggu_penerbitan', $user, 'store_wah_preparation',
-            ['nomor_jsa' => $data['nomor_jsa'] ?? null, 'wah_menggunakan_perancah' => $request->boolean('wah_menggunakan_perancah')]
-        );
+                // Petugas pengawas keselamatan & peralatan komunikasi.
+                'wah_nama_petugas_pengawas' => $data['wah_nama_petugas_pengawas'],
+                'wah_peralatan_komunikasi'  => $data['wah_peralatan_komunikasi'] ?? null,
+
+                // Checklist peralatan khusus (Bagian 3) — dicek kelayakan & ketersediaannya oleh IA saat Penerbitan.
+                'wah_alat_full_body_harness' => $request->boolean('alat_full_body_harness'),
+                'wah_alat_double_lanyard'    => $request->boolean('alat_double_lanyard'),
+                'wah_alat_anchor_point'      => $request->boolean('alat_anchor_point'),
+                'wah_alat_barrier'           => $request->boolean('alat_barrier'),
+                'wah_alat_medic_kit'         => $request->boolean('alat_medic_kit'),
+                'wah_alat_ambulance'         => $request->boolean('alat_ambulance'),
+                'wah_alat_lainnya'           => $data['alat_lainnya'] ?? null,
+
+                'wah_persiapan_diisi_at' => now(),
+                'status'                 => 'menunggu_penerbitan',
+            ]);
+
+            // Daftar pekerja yang diizinkan bekerja di ketinggian + status pelatihan (Ya/Tidak).
+            // Ganti seluruh daftar tiap kali form ini disimpan agar tetap sinkron dengan input terbaru PA.
+            $permit->personnel()->where('peran_pekerjaan', 'Pekerja Ketinggian (WAH)')->delete();
+            foreach ($data['pekerja'] as $pekerja) {
+                PermitPersonnel::create([
+                    'permit_id'                  => $permit->id,
+                    'nama'                        => $pekerja['nama'],
+                    'peran_pekerjaan'             => 'Pekerja Ketinggian (WAH)',
+                    'telah_pelatihan_ketinggian'  => $pekerja['telah_pelatihan'],
+                ]);
+            }
+
+            $this->service->recordTransition(
+                $permit, 'menunggu_persiapan_pa', 'menunggu_penerbitan', $user, 'store_wah_preparation',
+                [
+                    'nomor_jsa'                => $data['nomor_jsa'] ?? null,
+                    'wah_menggunakan_perancah' => $request->boolean('wah_menggunakan_perancah'),
+                    'jumlah_pekerja'           => count($data['pekerja']),
+                ]
+            );
+        });
 
         $this->notif(
             $permit->issuing_authority_id,
             $permit->id,
-            "Izin {$permit->nomor_izin} (WAH): Persiapan telah diisi PA. Menunggu Penerbitan."
+            "Izin {$permit->nomor_izin} (WAH): Persiapan telah diisi PA (petugas, daftar pekerja & peralatan). Menunggu Penerbitan."
         );
 
-        return response()->json(['message' => 'Persiapan WAH tersimpan. Menunggu Penerbitan.', 'data' => $permit]);
+        return response()->json([
+            'message' => 'Persiapan WAH tersimpan. Menunggu Penerbitan.',
+            'data'    => $permit->fresh()->load('personnel'),
+        ]);
     }
 }

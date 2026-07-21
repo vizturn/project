@@ -18,7 +18,15 @@ class PermitPersonnel extends Model
         'user_id',
         'nama',
         'peran_pekerjaan',
+        'telah_pelatihan_ketinggian',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'telah_pelatihan_ketinggian' => 'boolean',
+        ];
+    }
 
     public function permit(): BelongsTo
     {

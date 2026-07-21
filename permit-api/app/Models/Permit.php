@@ -31,6 +31,15 @@ class Permit extends Model
         'wah_scaffolding_cert_nomor',
         'wah_scaffolding_cert_file_path',
         'wah_persiapan_diisi_at',
+        'wah_nama_petugas_pengawas',
+        'wah_peralatan_komunikasi',
+        'wah_alat_full_body_harness',
+        'wah_alat_double_lanyard',
+        'wah_alat_anchor_point',
+        'wah_alat_barrier',
+        'wah_alat_medic_kit',
+        'wah_alat_ambulance',
+        'wah_alat_lainnya',
         'tingkat_risiko',
         'bahaya_lainnya',
         'ref_permit_cse',
@@ -67,6 +76,12 @@ class Permit extends Model
             // Bagian 3 (Persiapan) khusus WAH
             'wah_menggunakan_perancah' => 'boolean',
             'wah_persiapan_diisi_at'   => 'datetime',
+            'wah_alat_full_body_harness' => 'boolean',
+            'wah_alat_double_lanyard'    => 'boolean',
+            'wah_alat_anchor_point'      => 'boolean',
+            'wah_alat_barrier'           => 'boolean',
+            'wah_alat_medic_kit'         => 'boolean',
+            'wah_alat_ambulance'         => 'boolean',
         ];
     }
 

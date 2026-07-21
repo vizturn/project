@@ -72,6 +72,7 @@ class PermitController extends Controller
             'approvalAuthority:id,name',
             'issuingAuthority:id,name',
             'psbForms.psbType',
+            'personnel',
             'hazards.permitType:id,kode,nama',
             'psbForms.permitType:id,kode,nama',
             'gasTests.agt:id,name',
