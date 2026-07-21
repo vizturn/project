@@ -7,13 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreWahPreparationRequest;
 use App\Models\Permit;
 use App\Services\PermitService;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Bagian 3 — Persiapan (bagian PA, khusus WAH).
  * Langkah KEDUA dari Bagian 3 WAH (setelah IA menentukan kebutuhan
- * Isolasi Energi): PA mengisi JSA (opsional) dan, jika menggunakan
- * perancah, Scaffolding Certificate (wajib). Transisi:
- * menunggu_persiapan_pa -> menunggu_penerbitan.
+ * Isolasi Energi): PA mengisi JSA (opsional), Scaffolding Certificate
+ * (wajib jika pakai perancah), daftar pekerja, dan peralatan khusus.
+ * Transisi: menunggu_persiapan_pa -> menunggu_penerbitan.
  */
 class WahPreparationController extends Controller
 {
@@ -47,19 +48,37 @@ class WahPreparationController extends Controller
             ? $request->file('wah_scaffolding_cert_file')->store('wah/scaffolding/' . $permit->id, 'public')
             : null;
 
-        $permit->update([
-            'nomor_jsa'                      => $data['nomor_jsa'] ?? null,
-            'jsa_file_path'                   => $jsaPath,
-            'wah_menggunakan_perancah'        => $request->boolean('wah_menggunakan_perancah'),
-            'wah_scaffolding_cert_nomor'      => $data['wah_scaffolding_cert_nomor'] ?? null,
-            'wah_scaffolding_cert_file_path'  => $scaffoldingPath,
-            'wah_persiapan_diisi_at'          => now(),
-            'status'                          => 'menunggu_penerbitan',
-        ]);
+        // Semua tulisan (permit + pekerja) dalam satu transaksi agar konsisten.
+        DB::transaction(function () use ($permit, $request, $data, $jsaPath, $scaffoldingPath) {
+            $permit->update([
+                'nomor_jsa'                       => $data['nomor_jsa'] ?? null,
+                'jsa_file_path'                   => $jsaPath,
+                'wah_menggunakan_perancah'        => $request->boolean('wah_menggunakan_perancah'),
+                'wah_scaffolding_cert_nomor'      => $data['wah_scaffolding_cert_nomor'] ?? null,
+                'wah_scaffolding_cert_file_path'  => $scaffoldingPath,
+                'wah_peralatan'                   => $data['peralatan'] ?? [],
+                'wah_peralatan_lainnya'           => $data['peralatan_lainnya'] ?? null,
+                'wah_persiapan_diisi_at'          => now(),
+                'status'                          => 'menunggu_penerbitan',
+            ]);
+
+            // Daftar pekerja: replace pattern — hapus lama, isi ulang dari input.
+            $permit->wahWorkers()->delete();
+            foreach ($data['workers'] as $w) {
+                $permit->wahWorkers()->create([
+                    'nama_pekerja'    => $w['nama_pekerja'],
+                    'sudah_pelatihan' => (bool) $w['sudah_pelatihan'],
+                ]);
+            }
+        });
 
         $this->service->recordTransition(
             $permit, 'menunggu_persiapan_pa', 'menunggu_penerbitan', $user, 'store_wah_preparation',
-            ['nomor_jsa' => $data['nomor_jsa'] ?? null, 'wah_menggunakan_perancah' => $request->boolean('wah_menggunakan_perancah')]
+            [
+                'nomor_jsa'                => $data['nomor_jsa'] ?? null,
+                'wah_menggunakan_perancah' => $request->boolean('wah_menggunakan_perancah'),
+                'jumlah_pekerja'           => count($data['workers']),
+            ]
         );
 
         $this->notif(
@@ -68,6 +87,9 @@ class WahPreparationController extends Controller
             "Izin {$permit->nomor_izin} (WAH): Persiapan telah diisi PA. Menunggu Penerbitan."
         );
 
-        return response()->json(['message' => 'Persiapan WAH tersimpan. Menunggu Penerbitan.', 'data' => $permit]);
+        return response()->json([
+            'message' => 'Persiapan WAH tersimpan. Menunggu Penerbitan.',
+            'data'    => $permit->load('wahWorkers'),
+        ]);
     }
 }

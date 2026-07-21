@@ -31,6 +31,8 @@ class Permit extends Model
         'wah_scaffolding_cert_nomor',
         'wah_scaffolding_cert_file_path',
         'wah_persiapan_diisi_at',
+        'wah_peralatan',
+        'wah_peralatan_lainnya',
         'tingkat_risiko',
         'bahaya_lainnya',
         'ref_permit_cse',
@@ -67,6 +69,7 @@ class Permit extends Model
             // Bagian 3 (Persiapan) khusus WAH
             'wah_menggunakan_perancah' => 'boolean',
             'wah_persiapan_diisi_at'   => 'datetime',
+            'wah_peralatan'            => 'array',
         ];
     }
 
@@ -195,6 +198,11 @@ class Permit extends Model
     public function wahAccessLogs(): HasMany
     {
         return $this->hasMany(WahAccessLog::class);
+    }
+    
+    public function wahWorkers(): HasMany
+    {
+        return $this->hasMany(WahWorker::class);
     }
 
     public function statusHistories(): HasMany
