@@ -1,0 +1,56 @@
+services:
+  api:
+    build:
+      context: ./permit-api
+      dockerfile: Dockerfile
+    image: permit-api/php83
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '${APP_PORT:-80}:80'
+    volumes:
+      - './permit-api:/var/www/html'
+      - 'api-vendor:/var/www/html/vendor'
+    networks: [permit]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - '5173:5173'
+    volumes:
+      - './permit-web:/app'
+      - '/app/node_modules'
+    networks: [permit]
+
+  mysql:
+    image: 'mysql/mysql-server:8.0'
+    ports:
+      - '${FORWARD_DB_PORT:-3306}:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: '${DB_PASSWORD:-password}'
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_DATABASE: '${DB_DATABASE:-permit_she}'
+      MYSQL_USER: '${DB_USERNAME:-sail}'
+      MYSQL_PASSWORD: '${DB_PASSWORD:-password}'
+    volumes:
+      - 'permit-mysql:/var/lib/mysql'
+    networks: [permit]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD:-password}"]
+      retries: 3
+      timeout: 5s
+
+networks:
+  permit:
+    driver: bridge
+
+volumes:
+  permit-mysql:
+    driver: local
+  api-vendor:
+    driver: local
