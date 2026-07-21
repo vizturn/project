@@ -32,6 +32,7 @@ class StoreWahPreparationRequest extends FormRequest
             'wah_scaffolding_cert_nomor' => ['required_if:wah_menggunakan_perancah,1', 'nullable', 'string', 'max:50'],
             'wah_scaffolding_cert_file'  => ['required_if:wah_menggunakan_perancah,1', 'nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
 
+<<<<<<< HEAD
             // Petugas pengawas & peralatan komunikasi.
             'wah_nama_petugas_pengawas' => ['required', 'string', 'max:100'],
             'wah_peralatan_komunikasi'  => ['nullable', 'string', 'max:100'],
@@ -49,6 +50,17 @@ class StoreWahPreparationRequest extends FormRequest
             'alat_medic_kit'         => ['required', 'boolean'],
             'alat_ambulance'         => ['required', 'boolean'],
             'alat_lainnya'           => ['nullable', 'string', 'max:100'],
+=======
+            // Daftar pekerja (Bagian 3) — minimal 1 pekerja, nama wajib.
+            'workers'                    => ['required', 'array', 'min:1'],
+            'workers.*.nama_pekerja'     => ['required', 'string', 'max:150'],
+            'workers.*.sudah_pelatihan'  => ['required', 'boolean'],
+
+            // Peralatan khusus — checklist (array kode) + teks lainnya.
+            'peralatan'                  => ['nullable', 'array'],
+            'peralatan.*'               => ['string', 'max:50'],
+            'peralatan_lainnya'          => ['nullable', 'string', 'max:255'],
+>>>>>>> afe347c16aa540695405a53153114a00066b203f
         ];
     }
 
@@ -58,10 +70,15 @@ class StoreWahPreparationRequest extends FormRequest
             'jsa_file.mimes' => 'File JSA harus berformat PDF, Word, atau gambar.',
             'wah_scaffolding_cert_nomor.required_if' => 'Nomor Scaffolding Certificate wajib diisi jika menggunakan perancah.',
             'wah_scaffolding_cert_file.required_if'  => 'File Scaffolding Certificate wajib dilampirkan jika menggunakan perancah.',
+<<<<<<< HEAD
             'wah_nama_petugas_pengawas.required' => 'Nama petugas pengawas keselamatan wajib diisi.',
             'pekerja.required' => 'Minimal satu pekerja yang diizinkan bekerja di ketinggian harus diisi.',
             'pekerja.*.nama.required' => 'Nama pekerja wajib diisi.',
             'pekerja.*.telah_pelatihan.required' => 'Status pelatihan bekerja di ketinggian (Ya/Tidak) wajib dipilih untuk setiap pekerja.',
+=======
+            'workers.required'                => 'Minimal satu pekerja harus didaftarkan.',
+            'workers.*.nama_pekerja.required' => 'Nama pekerja wajib diisi.',
+>>>>>>> afe347c16aa540695405a53153114a00066b203f
         ];
     }
 }
