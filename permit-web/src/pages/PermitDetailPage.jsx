@@ -341,7 +341,83 @@ export default function PermitDetailPage() {
                   )}
                 </div>
               )}
+              <div>
+                <span className="font-medium">Petugas Pengawas Keselamatan:</span>{" "}
+                {permit.wah_nama_petugas_pengawas || "-"}
+              </div>
+              <div>
+                <span className="font-medium">Peralatan Komunikasi:</span>{" "}
+                {permit.wah_peralatan_komunikasi || "-"}
+              </div>
             </dl>
+
+            {/* Daftar pekerja yang diizinkan bekerja di ketinggian + status pelatihan */}
+            {permit.personnel?.filter((p) => p.peran_pekerjaan === "Pekerja Ketinggian (WAH)").length > 0 && (
+              <div className="mt-3">
+                <div className="text-sm font-medium text-slate-700 mb-1">
+                  Daftar Pekerja yang Diizinkan Bekerja di Ketinggian
+                </div>
+                <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
+                  <thead className="bg-slate-50 text-slate-600">
+                    <tr>
+                      <th className="text-left px-3 py-1.5 font-medium">Nama Pekerja</th>
+                      <th className="text-left px-3 py-1.5 font-medium">Telah Mengikuti Pelatihan Bekerja di Ketinggian</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {permit.personnel
+                      .filter((p) => p.peran_pekerjaan === "Pekerja Ketinggian (WAH)")
+                      .map((p) => (
+                        <tr key={p.id} className="border-t border-slate-100">
+                          <td className="px-3 py-1.5">{p.nama}</td>
+                          <td className="px-3 py-1.5">
+                            <span
+                              className={
+                                "px-2 py-0.5 rounded text-xs font-medium " +
+                                (p.telah_pelatihan_ketinggian
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-red-100 text-red-700")
+                              }
+                            >
+                              {p.telah_pelatihan_ketinggian ? "Ya" : "Tidak"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Checklist peralatan khusus */}
+            <div className="mt-3">
+              <div className="text-sm font-medium text-slate-700 mb-1">Peralatan Khusus yang Diperlukan</div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  ["Full body harness", permit.wah_alat_full_body_harness],
+                  ["Double lanyard", permit.wah_alat_double_lanyard],
+                  ["Anchor Point yang disetujui", permit.wah_alat_anchor_point],
+                  ["Barrier di sekitar Lokasi kerja", permit.wah_alat_barrier],
+                  ["Medic, first aider, first aid kit", permit.wah_alat_medic_kit],
+                  ["Ambulance", permit.wah_alat_ambulance],
+                ].map(([label, checked]) => (
+                  <span
+                    key={label}
+                    className={
+                      "px-2 py-0.5 rounded text-xs font-medium " +
+                      (checked ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-400 line-through")
+                    }
+                  >
+                    {label}
+                  </span>
+                ))}
+                {permit.wah_alat_lainnya && (
+                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                    Lainnya: {permit.wah_alat_lainnya}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
