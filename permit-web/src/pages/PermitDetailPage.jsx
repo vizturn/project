@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit } from "../services/permitService";
 import { getPsbTypes } from "../services/masterService";
 import { storeWahIsolation, storeWahPreparation, addWahAccessLog, wahFileUrl } from "../services/wahService";
+import { storeCseIsolation, storeCsePreparation, addCseAccessLog, cseFileUrl } from "../services/cseService";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/StatusBadge";
 import HazardForm from "../components/HazardForm";
@@ -12,6 +13,9 @@ import GasResultForm from "../components/GasResultForm";
 import WahIsolationForm from "../components/WahIsolationForm";
 import WahPreparationForm from "../components/WahPreparationForm";
 import WahAccessLogForm from "../components/WahAccessLogForm";
+import CseIsolationForm from "../components/CseIsolationForm";
+import CsePreparationForm from "../components/CsePreparationForm";
+import CseAccessLogForm from "../components/CseAccessLogForm";
 import { submitHazards, reviewHazards } from "../services/hazardService";
 import { toast } from "sonner";
 import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine } from "lucide-react";
@@ -102,6 +106,7 @@ export default function PermitDetailPage() {
   // Satu izin bisa mencakup beberapa jenis sekaligus (mis. CWP + WAH).
   // Bagian dari tiap jenis harus tampil BERSAMAAN, bukan saling meniadakan.
   const isHWPCWP = jenisIzin.some((t) => t.kode === "HWP" || t.kode === "CWP");
+  const isCSE = jenisIzin.some((t) => t.kode === "CSE");
 
   const isOwnerPA = permit && Number(user?.id) === Number(permit.performing_authority_id);
 
@@ -177,6 +182,18 @@ export default function PermitDetailPage() {
     }
     run(() => acceptPermit(id), "PTW diterima. Izin AKTIF.");
   };
+
+  // Bagian 3 (khusus CSE) — IA menentukan kebutuhan Isolasi Energi ruang terbatas.
+  const doCseIsolation = (formData) =>
+    run(() => storeCseIsolation(id, formData), "Evaluasi Isolasi Energi CSE tersimpan. Menunggu Persiapan PA.");
+
+  // Bagian 3 (khusus CSE) — PA menetapkan Petugas Jaga & peralatan khusus.
+  const doCsePreparation = (payload) =>
+    run(() => storeCsePreparation(id, payload), "Persiapan CSE tersimpan.");
+
+  // Bagian 7 (khusus CSE) — Petugas Jaga mencatat keluar-masuk ruang terbatas.
+  const doCseAccessLog = (payload) =>
+    run(() => addCseAccessLog(id, payload), "Catatan keluar-masuk tersimpan.");
 
   // Bagian 3 (khusus WAH) — IA menentukan kebutuhan Isolasi Energi.
   const doWahIsolation = (formData) =>
@@ -312,6 +329,65 @@ export default function PermitDetailPage() {
                 </div>
               )}
             </dl>
+          </div>
+        )}
+
+        {/* Bagian 3 tersimpan (read-only, khusus CSE) */}
+        {permit.cse_persiapan_diisi_at && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="text-orange-600" size={18} />
+              <h2 className="font-semibold text-slate-800">Persiapan Ruang Terbatas (Bagian 3 — CSE)</h2>
+            </div>
+            <dl className="text-sm text-slate-600 space-y-1">
+              <div>
+                <span className="font-medium">Isolasi Energi:</span>{" "}
+                {permit.cse_isolasi_diperlukan === null || permit.cse_isolasi_diperlukan === undefined
+                  ? "-"
+                  : permit.cse_isolasi_diperlukan ? "Diperlukan" : "Tidak diperlukan"}
+                {permit.cse_isolasi_cert_nomor && ` — Sertifikat ${permit.cse_isolasi_cert_nomor}`}
+                {permit.cse_isolasi_cert_file_path && (
+                  <a href={cseFileUrl(permit.cse_isolasi_cert_file_path)} target="_blank" rel="noreferrer"
+                    className="ml-2 text-blue-600 hover:underline">Lihat file</a>
+                )}
+              </div>
+              <div>
+                <span className="font-medium">Petugas Jaga:</span>{" "}
+                {permit.cse_petugas_jaga?.name || "-"}
+              </div>
+              <div>
+                <span className="font-medium">Peralatan Komunikasi:</span>{" "}
+                {permit.cse_alat_komunikasi || "-"}
+              </div>
+            </dl>
+
+            <div className="mt-3">
+              <div className="text-sm font-medium text-slate-700 mb-1">Peralatan Khusus Ruang Terbatas</div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  ["Escape harness, line & tripod", "escape_harness_tripod"],
+                  ["Breathing apparatus", "breathing_apparatus"],
+                  ["Stretcher, ambulance", "stretcher_ambulance"],
+                  ["Medic, First Aid Kit", "medic_first_aid"],
+                  ["Fire extinguishers", "fire_extinguisher"],
+                  ["Ventilasi mekanis", "ventilasi_mekanis"],
+                ].map(([label, kode]) => {
+                  const dipakai = (permit.cse_peralatan || []).includes(kode);
+                  return (
+                    <span key={kode}
+                      className={"px-2 py-0.5 rounded text-xs font-medium " +
+                        (dipakai ? "bg-orange-100 text-orange-800" : "bg-slate-100 text-slate-400")}>
+                      {label}
+                    </span>
+                  );
+                })}
+                {permit.cse_peralatan_lainnya && (
+                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                    Lainnya: {permit.cse_peralatan_lainnya}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -611,6 +687,20 @@ export default function PermitDetailPage() {
           </div>
         )}
 
+        {/* Bagian 3 (khusus CSE), langkah 1: IA menentukan kebutuhan Isolasi Energi ruang terbatas */}
+        {["disetujui", "menunggu_persiapan_pa"].includes(S) && hasRole("IA") && isCSE && !permit.cse_isolasi_diisi_at && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <CseIsolationForm busy={busy} onSubmit={doCseIsolation} />
+          </div>
+        )}
+
+        {/* Bagian 3 (khusus CSE), langkah 2: PA menetapkan Petugas Jaga & peralatan */}
+        {S === "menunggu_persiapan_pa" && isOwnerPA && isCSE && !permit.cse_persiapan_diisi_at && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <CsePreparationForm busy={busy} onSubmit={doCsePreparation} />
+          </div>
+        )}
+
         {/* Bagian 3 (khusus WAH), langkah 2: PA mengisi JSA + Scaffolding Certificate (setelah IA selesai) */}
         {S === "menunggu_persiapan_pa" && isOwnerPA && isWAH && (
           <div className="bg-white rounded-xl shadow p-6">
@@ -759,6 +849,13 @@ export default function PermitDetailPage() {
           </div>
         )}
 
+        {/* Bagian 7 (khusus CSE): Petugas Jaga / PA catat keluar-masuk ruang terbatas (saat aktif) */}
+        {S === "aktif" && isCSE && (isOwnerPA || Number(user?.id) === Number(permit.cse_petugas_jaga_id)) && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <CseAccessLogForm busy={busy} onSubmit={doCseAccessLog} />
+          </div>
+        )}
+
         {/* Bagian 7 (khusus WAH): PA catat naik/turun (saat aktif) */}
         {S === "aktif" && isOwnerPA && isWAH && (
           <div className="bg-white rounded-xl shadow p-6">
@@ -858,6 +955,42 @@ export default function PermitDetailPage() {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* Riwayat keluar-masuk ruang terbatas (khusus CSE) */}
+        {permit.cse_access_logs?.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Masuk/Keluar Ruang Terbatas (Bagian 7 — CSE)</h2>
+            <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
+              <thead className="bg-slate-50 text-slate-600">
+                <tr>
+                  <th className="text-left px-3 py-1.5 font-medium">Personel</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Tanggal</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Masuk</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Keluar</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Dicatat oleh</th>
+                </tr>
+              </thead>
+              <tbody>
+                {permit.cse_access_logs.map((l) => (
+                  <tr key={l.id} className="border-t border-slate-100">
+                    <td className="px-3 py-1.5">
+                      {l.nama_pekerja}
+                      {l.catatan ? <span className="text-slate-400"> — {l.catatan}</span> : null}
+                    </td>
+                    <td className="px-3 py-1.5 text-slate-500">{l.tanggal}</td>
+                    <td className="px-3 py-1.5">{l.jam_masuk ?? "-"}</td>
+                    <td className="px-3 py-1.5">
+                      {l.jam_keluar
+                        ? l.jam_keluar
+                        : <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">Masih di dalam</span>}
+                    </td>
+                    <td className="px-3 py-1.5 text-slate-500">{l.dicatat_oleh?.name ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 

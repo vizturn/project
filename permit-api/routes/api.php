@@ -2,6 +2,9 @@
 
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CseAccessLogController;
+use App\Http\Controllers\Api\CseIsolationController;
+use App\Http\Controllers\Api\CsePreparationController;
 use App\Http\Controllers\Api\GasTestController;
 use App\Http\Controllers\Api\HazardController;
 use App\Http\Controllers\Api\IssuancePrepController;
@@ -53,6 +56,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('/permits/{permit}/live-audits', [LiveAuditController::class, 'index']);
     // Bagian 7 (khusus WAH) — riwayat naik/turun
     Route::get('/permits/{permit}/wah-access-logs', [WahAccessLogController::class, 'index']);
+    // Bagian 7 (khusus CSE) — riwayat keluar-masuk ruang terbatas
+    Route::get('/permits/{permit}/cse-access-logs', [CseAccessLogController::class, 'index']);
 
     // STEP 26 — master daftar bahaya (Bagian 3), dikelompokkan per jenis izin
     Route::get('/permits/{permit}/hazard-options', [HazardController::class, 'options']);
@@ -66,11 +71,21 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/permits/{permit}/hazards', [HazardController::class, 'store']);
         // Bagian 3 (khusus WAH) — Persiapan: JSA + (opsional) Scaffolding Certificate
         Route::post('/permits/{permit}/wah-preparation', [WahPreparationController::class, 'store']);
+        // Bagian 3 (khusus CSE) — Persiapan: Petugas Jaga + peralatan ruang terbatas
+        Route::post('/permits/{permit}/cse-preparation', [CsePreparationController::class, 'store']);
         // Bagian 7 (khusus WAH) — catat naik/turun (boleh berkali-kali saat AKTIF)
         Route::post('/permits/{permit}/wah-access-logs', [WahAccessLogController::class, 'store']);
         // STEP 27 — Bagian 7: Penerimaan PTW oleh PA (menunggu_penerimaan -> aktif)
         Route::post('/permits/{permit}/accept', [PermitController::class, 'accept']);
     });
+
+    // Bagian 7 (khusus CSE) — catatan keluar-masuk ruang terbatas.
+    // Sesuai flowchart Lampiran 10, pencatatnya adalah Petugas Jaga; PA pemilik
+    // juga diizinkan. Pengecekan "PJ yang ditetapkan / PA pemilik" ada di controller.
+    Route::middleware('role:PJ,PA')->group(function () {
+        Route::post('/permits/{permit}/cse-access-logs', [CseAccessLogController::class, 'store']);
+    });
+
     Route::middleware('role:AA')->group(function () {
         Route::post('/permits/{permit}/approve', [PermitController::class, 'approve']);
         Route::post('/permits/{permit}/reject', [PermitController::class, 'reject']);
@@ -83,6 +98,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::put('/permits/{permit}/hazards', [HazardController::class, 'update']);
         // Bagian 3 (khusus WAH) — bagian IA: keputusan Isolasi Energi
         Route::post('/permits/{permit}/wah-isolation', [WahIsolationController::class, 'store']);
+        // Bagian 3 (khusus CSE) — bagian IA: keputusan Isolasi Energi
+        Route::post('/permits/{permit}/cse-isolation', [CseIsolationController::class, 'store']);
         // STEP 27 — Bagian 4 (Referensi Pendukung) & Bagian 5 (Penetapan Uji Gas)
         Route::post('/permits/{permit}/references', [IssuancePrepController::class, 'storeReferences']);
         Route::post('/permits/{permit}/gas-requirement', [IssuancePrepController::class, 'storeGasRequirement']);

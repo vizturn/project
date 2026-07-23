@@ -34,6 +34,15 @@ class Permit extends Model
         'wah_persiapan_diisi_at',
         'wah_peralatan',
         'wah_peralatan_lainnya',
+        'cse_isolasi_diperlukan',
+        'cse_isolasi_cert_nomor',
+        'cse_isolasi_cert_file_path',
+        'cse_isolasi_diisi_at',
+        'cse_petugas_jaga_id',
+        'cse_alat_komunikasi',
+        'cse_peralatan',
+        'cse_peralatan_lainnya',
+        'cse_persiapan_diisi_at',
         'tingkat_risiko',
         'bahaya_lainnya',
         'ref_permit_cse',
@@ -71,6 +80,10 @@ class Permit extends Model
             'wah_menggunakan_perancah' => 'boolean',
             'wah_persiapan_diisi_at'   => 'datetime',
             'hazard_diisi_at'          => 'datetime',
+            'cse_isolasi_diperlukan'   => 'boolean',
+            'cse_isolasi_diisi_at'     => 'datetime',
+            'cse_peralatan'            => 'array',
+            'cse_persiapan_diisi_at'   => 'datetime',
             'wah_peralatan'            => 'array',
         ];
     }
@@ -205,6 +218,17 @@ class Permit extends Model
     public function wahWorkers(): HasMany
     {
         return $this->hasMany(WahWorker::class);
+    }
+
+    public function cseAccessLogs(): HasMany
+    {
+        return $this->hasMany(CseAccessLog::class);
+    }
+
+    /** Petugas Jaga ruang terbatas (role PJ) — mencatat keluar-masuk personel. */
+    public function csePetugasJaga(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cse_petugas_jaga_id');
     }
 
     public function statusHistories(): HasMany

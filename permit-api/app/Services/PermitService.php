@@ -110,10 +110,10 @@ class PermitService
             return false;
         }
 
-        // CSE: aktifkan baris ini saat fitur Persiapan CSE dibuat.
-        // if ($this->isCse($permit) && ! $permit->cse_persiapan_diisi_at) {
-        //     return false;
-        // }
+        // CSE: persiapan PA (petugas jaga, peralatan khusus).
+        if ($this->isCse($permit) && ! $permit->cse_persiapan_diisi_at) {
+            return false;
+        }
 
         return true;
     }

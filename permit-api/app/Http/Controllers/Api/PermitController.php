@@ -81,6 +81,8 @@ class PermitController extends Controller
             'revalidations.returnedBy:id,name',
             'revalidations.revalidatedBy:id,name',
             'wahAccessLogs.dicatatOleh:id,name',
+            'csePetugasJaga:id,name,jabatan',
+            'cseAccessLogs.dicatatOleh:id,name',
         ]);
 
         return response()->json(['data' => $permit]);
