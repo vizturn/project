@@ -24,6 +24,7 @@ class Permit extends Model
         'issuing_authority_id',
         'lokasi',
         'deskripsi_pekerjaan',
+        'hazard_diisi_at',
         'durasi',
         'nomor_jsa',
         'jsa_file_path',
@@ -69,6 +70,7 @@ class Permit extends Model
             // Bagian 3 (Persiapan) khusus WAH
             'wah_menggunakan_perancah' => 'boolean',
             'wah_persiapan_diisi_at'   => 'datetime',
+            'hazard_diisi_at'          => 'datetime',
             'wah_peralatan'            => 'array',
         ];
     }

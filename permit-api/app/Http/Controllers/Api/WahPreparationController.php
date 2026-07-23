@@ -11,10 +11,11 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Bagian 3 — Persiapan (bagian PA, khusus WAH).
- * Langkah KEDUA Bagian 3 WAH (setelah IA menentukan Isolasi Energi):
  * PA mengisi JSA (opsional), Scaffolding Certificate (jika pakai perancah),
  * daftar pekerja di ketinggian, dan checklist peralatan khusus.
- * Transisi: menunggu_persiapan_pa -> menunggu_penerbitan.
+ *
+ * Izin GABUNGAN (mis. CWP + WAH): status baru maju ke menunggu_penerbitan
+ * setelah SELURUH Bagian 3 dari SEMUA jenis izin lengkap. Urutan bebas.
  */
 class WahPreparationController extends Controller
 {
@@ -59,7 +60,6 @@ class WahPreparationController extends Controller
                 'wah_peralatan'                  => $data['peralatan'] ?? [],
                 'wah_peralatan_lainnya'          => $data['peralatan_lainnya'] ?? null,
                 'wah_persiapan_diisi_at'         => now(),
-                'status'                         => 'menunggu_penerbitan',
             ]);
 
             // Daftar pekerja: replace-pattern (hapus lama, isi ulang) agar aman bila PA submit ulang.
@@ -72,8 +72,19 @@ class WahPreparationController extends Controller
             }
         });
 
+        // Maju ke penerbitan HANYA jika seluruh Bagian 3 dari semua jenis izin lengkap.
+        $lanjut = $this->service->bagian3Lengkap($permit->fresh());
+
+        if ($lanjut) {
+            $permit->update(['status' => 'menunggu_penerbitan']);
+        }
+
         $this->service->recordTransition(
-            $permit, 'menunggu_persiapan_pa', 'menunggu_penerbitan', $user, 'store_wah_preparation',
+            $permit,
+            'menunggu_persiapan_pa',
+            $lanjut ? 'menunggu_penerbitan' : 'menunggu_persiapan_pa',
+            $user,
+            'store_wah_preparation',
             [
                 'nomor_jsa'                => $data['nomor_jsa'] ?? null,
                 'wah_menggunakan_perancah' => $request->boolean('wah_menggunakan_perancah'),
@@ -81,14 +92,18 @@ class WahPreparationController extends Controller
             ]
         );
 
-        $this->notif(
-            $permit->issuing_authority_id,
-            $permit->id,
-            "Izin {$permit->nomor_izin} (WAH): Persiapan telah diisi PA (daftar pekerja & peralatan). Menunggu Penerbitan."
-        );
+        if ($lanjut) {
+            $this->notif(
+                $permit->issuing_authority_id,
+                $permit->id,
+                "Izin {$permit->nomor_izin}: seluruh Bagian 3 lengkap. Menunggu Penerbitan."
+            );
+        }
 
         return response()->json([
-            'message' => 'Persiapan WAH tersimpan. Menunggu Penerbitan.',
+            'message' => $lanjut
+                ? 'Persiapan WAH tersimpan. Menunggu Penerbitan.'
+                : 'Persiapan WAH tersimpan. Lengkapi bagian jenis izin lainnya sebelum dapat diterbitkan.',
             'data'    => $permit->load('wahWorkers'),
         ]);
     }

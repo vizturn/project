@@ -60,21 +60,36 @@ class HazardController extends Controller
             return response()->json(['message' => 'Hanya PA pemilik yang dapat melengkapi identifikasi bahaya.'], 403);
         }
 
-        if ($permit->status !== 'disetujui') {
+        // Izin GABUNGAN (mis. CWP + WAH) bisa sudah bergeser ke menunggu_persiapan_pa
+        // karena alur WAH. Bagian bahaya tetap harus bisa diisi — urutan bebas.
+        if (! in_array($permit->status, ['disetujui', 'menunggu_persiapan_pa'], true)) {
             return response()->json([
                 'message' => 'Identifikasi bahaya hanya dapat diisi setelah izin disetujui AA.',
             ], 422);
         }
 
+        $statusLama = $permit->status;
+
         $this->simpanBahaya($permit, $request->validated());
 
-        $permit->update(['status' => 'menunggu_penerbitan']);
-        $this->service->recordTransition(
-            $permit, 'disetujui', 'menunggu_penerbitan', $user, 'submit_hazards'
-        );
+        $permit->update(['hazard_diisi_at' => now()]);
+
+        // Maju ke penerbitan HANYA jika seluruh Bagian 3 dari semua jenis izin lengkap.
+        $lanjut = $this->service->bagian3Lengkap($permit->fresh());
+
+        if ($lanjut) {
+            $permit->update(['status' => 'menunggu_penerbitan']);
+            $this->service->recordTransition(
+                $permit, $statusLama, 'menunggu_penerbitan', $user, 'submit_hazards'
+            );
+        } else {
+            $this->service->recordTransition(
+                $permit, $statusLama, $statusLama, $user, 'submit_hazards'
+            );
+        }
 
         // IA yang ditunjuk diberi tahu: siap diperiksa & diterbitkan.
-        if ($permit->issuing_authority_id) {
+        if ($lanjut && $permit->issuing_authority_id) {
             Notification::create([
                 'user_id'   => $permit->issuing_authority_id,
                 'permit_id' => $permit->id,
@@ -84,7 +99,9 @@ class HazardController extends Controller
         }
 
         return response()->json([
-            'message' => 'Identifikasi bahaya tersimpan. Izin menunggu pemeriksaan & penerbitan IA.',
+            'message' => $lanjut
+                ? 'Identifikasi bahaya tersimpan. Izin menunggu pemeriksaan & penerbitan IA.'
+                : 'Identifikasi bahaya tersimpan. Lengkapi bagian jenis izin lainnya sebelum dapat diterbitkan.',
             'data'    => $permit->load('hazards.permitType'),
         ]);
     }

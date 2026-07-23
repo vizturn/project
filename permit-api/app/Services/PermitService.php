@@ -75,6 +75,49 @@ class PermitService
         return $this->jenisIzin($permit)->contains('WAH');
     }
 
+    /** Izin mencakup HWP atau CWP — jenis yang memakai Bagian 3 checklist bahaya. */
+    public function isHwpCwp(Permit $permit): bool
+    {
+        $jenis = $this->jenisIzin($permit);
+
+        return $jenis->contains('HWP') || $jenis->contains('CWP');
+    }
+
+    /** Izin mencakup CSE (Confined Space Entry). */
+    public function isCse(Permit $permit): bool
+    {
+        return $this->jenisIzin($permit)->contains('CSE');
+    }
+
+    /**
+     * Apakah SELURUH "Bagian 3" dari SEMUA jenis izin yang melekat sudah lengkap?
+     *
+     * Satu izin dapat mencakup beberapa jenis sekaligus (mis. Pekerjaan Dingin di
+     * ketinggian = CWP + WAH). Tiap jenis punya Bagian 3 sendiri yang berjalan
+     * paralel, dan urutan pengisiannya bebas. IA baru boleh menerbitkan setelah
+     * semuanya terisi — karena itu kelengkapan dilacak lewat penanda per bagian,
+     * bukan lewat status tunggal.
+     */
+    public function bagian3Lengkap(Permit $permit): bool
+    {
+        // HWP/CWP: identifikasi bahaya (Bagian 3 checklist).
+        if ($this->isHwpCwp($permit) && ! $permit->hazard_diisi_at) {
+            return false;
+        }
+
+        // WAH: persiapan PA (JSA, perancah, daftar pekerja, peralatan).
+        if ($this->isWah($permit) && ! $permit->wah_persiapan_diisi_at) {
+            return false;
+        }
+
+        // CSE: aktifkan baris ini saat fitur Persiapan CSE dibuat.
+        // if ($this->isCse($permit) && ! $permit->cse_persiapan_diisi_at) {
+        //     return false;
+        // }
+
+        return true;
+    }
+
     public function recordTransition(
         Permit $permit,
         ?string $from,
