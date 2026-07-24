@@ -10,9 +10,12 @@ use App\Services\PermitService;
 
 /**
  * Bagian 3 — Persiapan (bagian IA, khusus WAH).
- * Langkah PERTAMA dari Bagian 3 WAH (sebelum PA mengisi JSA/Scaffolding):
  * IA menentukan apakah Isolasi Energi diperlukan, dan jika ya melampirkan
- * Sertifikat Isolasi. Transisi: disetujui -> menunggu_persiapan_pa.
+ * Sertifikat Isolasi. Dilakukan SETELAH PA melengkapi Persiapan WAH
+ * (WahPreparationController) — sejajar dengan Bagian 4 (Referensi Pendukung)
+ * & Bagian 5 (Penetapan Uji Gas) yang juga diisi IA pada tahap yang sama,
+ * sebelum menerbitkan izin. Tidak mengubah status keseluruhan izin — izin
+ * tetap MENUNGGU_PENERBITAN sampai IA menekan tombol Terbitkan.
  */
 class WahIsolationController extends Controller
 {
@@ -32,8 +35,8 @@ class WahIsolationController extends Controller
         if (! $this->ditugaskan($permit->issuing_authority_id, $user->id)) {
             return response()->json(['message' => 'Izin ini ditujukan kepada Issuing Authority lain.'], 403);
         }
-        if ($permit->status !== 'disetujui') {
-            return response()->json(['message' => 'Evaluasi Isolasi Energi hanya dapat diisi saat izin berstatus DISETUJUI.'], 422);
+        if ($permit->status !== 'menunggu_penerbitan') {
+            return response()->json(['message' => 'Evaluasi Isolasi Energi hanya dapat diisi setelah PA melengkapi Bagian 3 (Persiapan WAH).'], 422);
         }
 
         $data = $request->validated();
@@ -41,28 +44,21 @@ class WahIsolationController extends Controller
 
         $certPath = $diperlukan && $request->hasFile('wah_isolasi_cert_file')
             ? $request->file('wah_isolasi_cert_file')->store('wah/isolasi/' . $permit->id, 'public')
-            : null;
+            : ($permit->wah_isolasi_cert_file_path ?: null);
 
         $permit->update([
             'wah_isolasi_diperlukan'     => $diperlukan,
             'wah_isolasi_cert_nomor'     => $diperlukan ? ($data['wah_isolasi_cert_nomor'] ?? null) : null,
-            'wah_isolasi_cert_file_path' => $certPath,
+            'wah_isolasi_cert_file_path' => $diperlukan ? $certPath : null,
             'wah_isolasi_diisi_at'       => now(),
-            'issuing_authority_id'       => $user->id,
-            'status'                     => 'menunggu_persiapan_pa',
         ]);
 
+        // Status TIDAK berubah — masih di tahap Penerbitan (sama seperti Bagian 4/5).
         $this->service->recordTransition(
-            $permit, 'disetujui', 'menunggu_persiapan_pa', $user, 'store_wah_isolation',
+            $permit, 'menunggu_penerbitan', 'menunggu_penerbitan', $user, 'store_wah_isolation',
             ['wah_isolasi_diperlukan' => $diperlukan]
         );
 
-        $this->notif(
-            $permit->performing_authority_id,
-            $permit->id,
-            "Izin {$permit->nomor_izin} (WAH): IA telah menentukan kebutuhan Isolasi Energi. Silakan lengkapi Persiapan (JSA & Scaffolding)."
-        );
-
-        return response()->json(['message' => 'Evaluasi Isolasi Energi tersimpan. Menunggu Persiapan PA.', 'data' => $permit]);
+        return response()->json(['message' => 'Evaluasi Isolasi Energi tersimpan.', 'data' => $permit]);
     }
 }

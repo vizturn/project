@@ -320,6 +320,15 @@ class PermitController extends Controller
             ], 422);
         }
 
+        // Izin WAH: IA wajib mengevaluasi Isolasi Energi (Bagian 3, bagian IA)
+        // sebelum menerbitkan — sekarang dilakukan di tahap ini, sejajar dengan
+        // Bagian 4/5, bukan lagi sebelum PA mengisi Persiapan.
+        if ($this->service->isWah($permit) && $permit->wah_isolasi_diisi_at === null) {
+            return response()->json([
+                'message' => 'Bagian 3 (Evaluasi Isolasi Energi WAH) wajib diisi IA sebelum penerbitan.',
+            ], 422);
+        }
+
         // STEP 28 — Uji gas TIDAK lagi memblokir penerbitan.
         // Hasil pengukuran hanya dicatat; penilaian kondisi aman adalah wewenang IA
         // (pernyataan Bagian 6). Uji gas sepenuhnya opsional.

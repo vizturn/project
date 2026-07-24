@@ -13,6 +13,15 @@ export const storeWahIsolation = (id, formData) =>
 export const storeWahPreparation = (id, formData) =>
   api.post(`/permits/${id}/wah-preparation`, formData);
 
+// Bagian 3 (Persiapan, khusus WAH) — IA meninjau/mengedit Persiapan yang diisi PA
+// (saat izin menunggu_penerbitan). Route backend-nya PUT, tapi karena body berupa
+// FormData (bisa ada file baru), dikirim via POST + field _method=PUT (method
+// spoofing Laravel) — PHP tidak mem-parsing body multipart pada request PUT asli.
+export const reviewWahPreparation = (id, formData) => {
+  formData.append("_method", "PUT");
+  return api.post(`/permits/${id}/wah-preparation`, formData);
+};
+
 // URL file publik (disk "public" + `php artisan storage:link`) untuk file JSA / Scaffolding
 // Certificate yang sudah diunggah. Dipakai langsung sebagai href — tidak butuh token,
 // jadi bisa dibuka lewat <a> biasa.

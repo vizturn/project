@@ -71,6 +71,21 @@ class HazardController extends Controller
         $statusLama = $permit->status;
 
         $this->simpanBahaya($permit, $request->validated());
+        $permit->refresh();
+
+        // Izin GABUNGAN (mis. HWP/CWP + WAH) baru boleh lanjut ke IA setelah
+        // SEMUA bagian Bagian 3 yang relevan terisi (Identifikasi Bahaya PTW
+        // dan Persiapan WAH, jika izin ini juga mencakup WAH).
+        if (! $this->service->bagian3Selesai($permit)) {
+            $this->service->recordTransition(
+                $permit, 'disetujui', 'disetujui', $user, 'submit_hazards_partial'
+            );
+
+            return response()->json([
+                'message' => 'Identifikasi bahaya tersimpan. Lengkapi juga Persiapan WAH (Bagian 3) sebelum dikirim ke IA.',
+                'data'    => $permit->load('hazards.permitType'),
+            ]);
+        }
 
         $permit->update(['hazard_diisi_at' => now()]);
 

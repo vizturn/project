@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit } from "../services/permitService";
 import { getPsbTypes } from "../services/masterService";
-import { storeWahIsolation, storeWahPreparation, addWahAccessLog, wahFileUrl } from "../services/wahService";
+import { storeWahIsolation, storeWahPreparation, reviewWahPreparation, addWahAccessLog, wahFileUrl } from "../services/wahService";
 import { storeCseIsolation, storeCsePreparation, addCseAccessLog, cseFileUrl } from "../services/cseService";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/StatusBadge";
@@ -107,6 +107,9 @@ export default function PermitDetailPage() {
   // Bagian dari tiap jenis harus tampil BERSAMAAN, bukan saling meniadakan.
   const isHWPCWP = jenisIzin.some((t) => t.kode === "HWP" || t.kode === "CWP");
   const isCSE = jenisIzin.some((t) => t.kode === "CSE");
+  // Bagian 4 (Referensi Pendukung) & Bagian 5 (Penetapan Uji Gas) hanya untuk HWP/CWP
+  // (samakan dengan PermitService::butuhReferensiPendukung di backend).
+  const butuhReferensi = jenisIzin.some((t) => ["HWP", "CWP"].includes(t.kode));
 
   const isOwnerPA = permit && Number(user?.id) === Number(permit.performing_authority_id);
 
@@ -197,11 +200,15 @@ export default function PermitDetailPage() {
 
   // Bagian 3 (khusus WAH) — IA menentukan kebutuhan Isolasi Energi.
   const doWahIsolation = (formData) =>
-    run(() => storeWahIsolation(id, formData), "Evaluasi Isolasi Energi tersimpan. Menunggu Persiapan PA.");
+    run(() => storeWahIsolation(id, formData), "Evaluasi Isolasi Energi tersimpan.");
 
   // Bagian 3 (khusus WAH) — PA upload JSA & (opsional) Scaffolding Certificate.
   const doWahPreparation = (formData) =>
-    run(() => storeWahPreparation(id, formData), "Persiapan WAH tersimpan. Menunggu Penerbitan.");
+    run(() => storeWahPreparation(id, formData), "Persiapan WAH tersimpan.");
+
+  // Bagian 3 (khusus WAH) — IA meninjau/mengedit Persiapan yang diisi PA.
+  const doReviewWahPreparation = (formData) =>
+    run(() => reviewWahPreparation(id, formData), "Pemeriksaan Persiapan WAH tersimpan.");
 
   // Bagian 7 (khusus WAH) — PA mencatat naik/turun (boleh berkali-kali).
   const doWahAccessLog = (payload, onSuccess) => {
@@ -420,18 +427,10 @@ export default function PermitDetailPage() {
                   )}
                 </div>
               )}
-              <div>
-                <span className="font-medium">Petugas Pengawas Keselamatan:</span>{" "}
-                {permit.wah_nama_petugas_pengawas || "-"}
-              </div>
-              <div>
-                <span className="font-medium">Peralatan Komunikasi:</span>{" "}
-                {permit.wah_peralatan_komunikasi || "-"}
-              </div>
             </dl>
 
             {/* Daftar pekerja yang diizinkan bekerja di ketinggian + status pelatihan */}
-            {permit.personnel?.filter((p) => p.peran_pekerjaan === "Pekerja Ketinggian (WAH)").length > 0 && (
+            {permit.wah_workers?.length > 0 && (
               <div className="mt-3">
                 <div className="text-sm font-medium text-slate-700 mb-1">
                   Daftar Pekerja yang Diizinkan Bekerja di Ketinggian
@@ -440,59 +439,60 @@ export default function PermitDetailPage() {
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
                       <th className="text-left px-3 py-1.5 font-medium">Nama Pekerja</th>
-                      <th className="text-left px-3 py-1.5 font-medium">Telah Mengikuti Pelatihan Bekerja di Ketinggian</th>
+                      <th className="text-left px-3 py-1.5 font-medium">Telah Mengikuti Pelatihan</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {permit.personnel
-                      .filter((p) => p.peran_pekerjaan === "Pekerja Ketinggian (WAH)")
-                      .map((p) => (
-                        <tr key={p.id} className="border-t border-slate-100">
-                          <td className="px-3 py-1.5">{p.nama}</td>
-                          <td className="px-3 py-1.5">
-                            <span
-                              className={
-                                "px-2 py-0.5 rounded text-xs font-medium " +
-                                (p.telah_pelatihan_ketinggian
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-red-100 text-red-700")
-                              }
-                            >
-                              {p.telah_pelatihan_ketinggian ? "Ya" : "Tidak"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                    {permit.wah_workers.map((w) => (
+                      <tr key={w.id} className="border-t border-slate-100">
+                        <td className="px-3 py-1.5">{w.nama_pekerja}</td>
+                        <td className="px-3 py-1.5">
+                          <span
+                            className={
+                              "px-2 py-0.5 rounded text-xs font-medium " +
+                              (w.sudah_pelatihan
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-red-100 text-red-700")
+                            }
+                          >
+                            {w.sudah_pelatihan ? "Ya" : "Tidak"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             )}
 
-            {/* Checklist peralatan khusus */}
+            {/* Checklist peralatan khusus (dari array wah_peralatan) */}
             <div className="mt-3">
               <div className="text-sm font-medium text-slate-700 mb-1">Peralatan Khusus yang Diperlukan</div>
               <div className="flex flex-wrap gap-1.5">
                 {[
-                  ["Full body harness", permit.wah_alat_full_body_harness],
-                  ["Double lanyard", permit.wah_alat_double_lanyard],
-                  ["Anchor Point yang disetujui", permit.wah_alat_anchor_point],
-                  ["Barrier di sekitar Lokasi kerja", permit.wah_alat_barrier],
-                  ["Medic, first aider, first aid kit", permit.wah_alat_medic_kit],
-                  ["Ambulance", permit.wah_alat_ambulance],
-                ].map(([label, checked]) => (
-                  <span
-                    key={label}
-                    className={
-                      "px-2 py-0.5 rounded text-xs font-medium " +
-                      (checked ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-400 line-through")
-                    }
-                  >
-                    {label}
-                  </span>
-                ))}
-                {permit.wah_alat_lainnya && (
+                  ["Full body harness", "full_body_harness"],
+                  ["Double lanyard", "double_lanyard"],
+                  ["Anchor point yang disetujui", "anchor_point"],
+                  ["Barrier di sekitar lokasi kerja", "barrier"],
+                  ["Medic / first aider / first aid kit", "medic"],
+                  ["Ambulance", "ambulance"],
+                ].map(([label, kode]) => {
+                  const dipakai = (permit.wah_peralatan || []).includes(kode);
+                  return (
+                    <span
+                      key={kode}
+                      className={
+                        "px-2 py-0.5 rounded text-xs font-medium " +
+                        (dipakai ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-400")
+                      }
+                    >
+                      {label}
+                    </span>
+                  );
+                })}
+                {permit.wah_peralatan_lainnya && (
                   <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                    Lainnya: {permit.wah_alat_lainnya}
+                    Lainnya: {permit.wah_peralatan_lainnya}
                   </span>
                 )}
               </div>
@@ -680,12 +680,13 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* Bagian 3 (khusus WAH), langkah 1: IA menentukan kebutuhan Isolasi Energi (saat disetujui) */}
-        {S === "disetujui" && hasRole("IA") && isWAH && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <WahIsolationForm busy={busy} onSubmit={doWahIsolation} />
-          </div>
-        )}
+        {/*
+          Bagian 3 — sekarang PA mengisi SEMUA bagian yang relevan langsung setelah
+          izin DISETUJUI AA (tidak lagi menunggu giliran IA lebih dulu). Pada izin
+          gabungan (mis. HWP/CWP + WAH), kedua form di bawah bisa muncul sekaligus —
+          backend baru memindahkan status ke menunggu_penerbitan setelah SEMUA form
+          yang relevan terisi (lihat PermitService::bagian3Selesai).
+        */}
 
         {/* Bagian 3 (khusus CSE), langkah 1: IA menentukan kebutuhan Isolasi Energi ruang terbatas */}
         {["disetujui", "menunggu_persiapan_pa"].includes(S) && hasRole("IA") && isCSE && !permit.cse_isolasi_diisi_at && (
@@ -701,28 +702,34 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* Bagian 3 (khusus WAH), langkah 2: PA mengisi JSA + Scaffolding Certificate (setelah IA selesai) */}
-        {S === "menunggu_persiapan_pa" && isOwnerPA && isWAH && (
+        {/* Bagian 3 (khusus WAH): PA mengisi Persiapan (JSA/Scaffolding/Pekerja/Peralatan) */}
+        {S === "disetujui" && isOwnerPA && isWAH && (
           <div className="bg-white rounded-xl shadow p-6">
-            <WahPreparationForm busy={busy} onSubmit={doWahPreparation} />
+            <WahPreparationForm
+              awal={permit}
+              judul="Bagian 3 — Persiapan (PA, khusus WAH)"
+              labelTombol={isHWPCWP ? "Simpan Persiapan WAH" : "Simpan Persiapan & Kirim ke IA"}
+              busy={busy}
+              onSubmit={doWahPreparation}
+            />
           </div>
         )}
 
-        {/* Bagian 3: PA melengkapi Identifikasi Bahaya (saat disetujui) */}
+        {/* Bagian 3: PA melengkapi Identifikasi Bahaya PTW (HWP/CWP) saat disetujui */}
         {["disetujui", "menunggu_persiapan_pa"].includes(S) && isOwnerPA && isHWPCWP && (
           <div className="bg-white rounded-xl shadow p-6">
             <HazardForm
               permit={permit}
               awal={permit}
               judul="Bagian 3 — Identifikasi Bahaya dan Pengendalian (PA)"
-              labelTombol="Simpan & Kirim ke IA"
+              labelTombol={isWAH ? "Simpan Identifikasi Bahaya" : "Simpan & Kirim ke IA"}
               busy={busy}
               onSubmit={(payload) => run(() => submitHazards(id, payload), "Identifikasi bahaya tersimpan.")}
             />
           </div>
         )}
 
-        {/* Bagian 3: IA memeriksa & boleh MENAMBAH/MENGHAPUS bahaya (saat menunggu penerbitan) — tidak berlaku untuk WAH */}
+        {/* Bagian 3: IA memeriksa & boleh MENAMBAH/MENGHAPUS bahaya (saat menunggu penerbitan) — HWP/CWP */}
         {S === "menunggu_penerbitan" && hasRole("IA") && isHWPCWP && (
           <div className="bg-white rounded-xl shadow p-6">
             <HazardForm
@@ -736,8 +743,28 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* STEP 27 — Bagian 4: Referensi Pendukung (IA) — tidak berlaku untuk WAH */}
-        {S === "menunggu_penerbitan" && hasRole("IA") && isHWPCWP && (
+        {/* Bagian 3 (khusus WAH): IA memeriksa & boleh mengedit Persiapan yang diisi PA */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && isWAH && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <WahPreparationForm
+              awal={permit}
+              judul="Bagian 3 — Pemeriksaan Persiapan WAH (IA) — boleh mengedit"
+              labelTombol="Simpan Pemeriksaan"
+              busy={busy}
+              onSubmit={doReviewWahPreparation}
+            />
+          </div>
+        )}
+
+        {/* Bagian 3 (khusus WAH): IA menentukan kebutuhan Isolasi Energi — SETELAH Persiapan PA */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && isWAH && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <WahIsolationForm awal={permit} busy={busy} onSubmit={doWahIsolation} />
+          </div>
+        )}
+
+        {/* STEP 27 — Bagian 4: Referensi Pendukung (IA) — hanya HWP/CWP */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && butuhReferensi && (
           <div className="bg-white rounded-xl shadow p-6">
             <ReferenceForm
               awal={permit}
@@ -747,8 +774,8 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* STEP 27 — Bagian 5: Penetapan pengujian gas (IA) — tidak berlaku untuk WAH */}
-        {S === "menunggu_penerbitan" && hasRole("IA") && isHWPCWP && (
+        {/* STEP 27 — Bagian 5: Penetapan pengujian gas (IA) — hanya HWP/CWP */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && butuhReferensi && (
           <div className="bg-white rounded-xl shadow p-6">
             <GasRequirementForm
               awal={permit}
@@ -758,8 +785,8 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* STEP 27 — Hasil uji gas: boleh diisi IA maupun AGT — tidak berlaku untuk WAH */}
-        {S === "menunggu_penerbitan" && (hasRole("IA") || hasRole("AGT")) && isHWPCWP && (
+        {/* STEP 27 — Hasil uji gas: boleh diisi IA maupun AGT — hanya HWP/CWP */}
+        {S === "menunggu_penerbitan" && (hasRole("IA") || hasRole("AGT")) && butuhReferensi && (
           <div className="bg-white rounded-xl shadow p-6">
             <GasResultForm
               busy={busy}
@@ -776,9 +803,14 @@ export default function PermitDetailPage() {
               Saya, IA, menyatakan semua bahaya telah diidentifikasi, semua tindakan pencegahan telah
               dilakukan, dan kondisi aman untuk melaksanakan pekerjaan.
             </p>
-            {isHWPCWP && (
+            {(butuhReferensi || isWAH) && (
               <ul className="text-xs text-slate-500 list-disc pl-5 space-y-0.5">
-                <li>Bagian 4 (Referensi Pendukung) {permit.referensi_diisi_at ? "sudah diisi" : "BELUM diisi — wajib"}</li>
+                {butuhReferensi && (
+                  <li>Bagian 4 (Referensi Pendukung) {permit.referensi_diisi_at ? "sudah diisi" : "BELUM diisi — wajib"}</li>
+                )}
+                {isWAH && (
+                  <li>Bagian 3 (Isolasi Energi WAH) {permit.wah_isolasi_diisi_at ? "sudah diisi" : "BELUM diisi — wajib"}</li>
+                )}
                 <li>Masa berlaku 72 jam dihitung sejak penerbitan.</li>
               </ul>
             )}

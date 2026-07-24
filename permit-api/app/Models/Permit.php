@@ -43,6 +43,13 @@ class Permit extends Model
         'cse_peralatan',
         'cse_peralatan_lainnya',
         'cse_persiapan_diisi_at',
+        // BUGFIX: kolom ini sudah ada di migration (add_wah_isolasi_fields_to_permits_table)
+        // tapi belum pernah ditambahkan ke $fillable, sehingga WahIsolationController::store()
+        // hanya menyimpan 'status' & 'issuing_authority_id' — 4 field ini diam-diam terbuang.
+        'wah_isolasi_diperlukan',
+        'wah_isolasi_cert_nomor',
+        'wah_isolasi_cert_file_path',
+        'wah_isolasi_diisi_at',
         'tingkat_risiko',
         'bahaya_lainnya',
         'ref_permit_cse',
@@ -85,6 +92,8 @@ class Permit extends Model
             'cse_peralatan'            => 'array',
             'cse_persiapan_diisi_at'   => 'datetime',
             'wah_peralatan'            => 'array',
+            'wah_isolasi_diperlukan'   => 'boolean',
+            'wah_isolasi_diisi_at'     => 'datetime',
         ];
     }
 
@@ -214,7 +223,7 @@ class Permit extends Model
     {
         return $this->hasMany(WahAccessLog::class);
     }
-    
+
     public function wahWorkers(): HasMany
     {
         return $this->hasMany(WahWorker::class);

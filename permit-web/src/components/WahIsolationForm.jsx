@@ -5,18 +5,21 @@ import { ShieldCheck } from "lucide-react";
 /**
  * Bagian 3 — Persiapan (bagian IA, khusus WAH).
  * IA menentukan apakah Isolasi Energi diperlukan. Jika Ya, Sertifikat
- * Isolasi (nomor + file) wajib dilampirkan.
+ * Isolasi (nomor + file) wajib dilampirkan. Dilakukan setelah PA melengkapi
+ * Persiapan WAH, sejajar dengan Bagian 4/5, sebelum IA menerbitkan izin.
  */
-export default function WahIsolationForm({ onSubmit, busy }) {
-  const [diperlukan, setDiperlukan] = useState(null); // null = belum dipilih
-  const [certNomor, setCertNomor] = useState("");
+export default function WahIsolationForm({ awal, onSubmit, busy }) {
+  const [diperlukan, setDiperlukan] = useState(
+    awal?.wah_isolasi_diperlukan === true ? true : awal?.wah_isolasi_diperlukan === false ? false : null
+  ); // null = belum dipilih
+  const [certNomor, setCertNomor] = useState(awal?.wah_isolasi_cert_nomor ?? "");
   const [certFile, setCertFile] = useState(null);
 
   const kirim = () => {
     if (diperlukan === null) { toast.error("Pilih apakah Isolasi Energi diperlukan."); return; }
     if (diperlukan) {
       if (!certNomor.trim()) { toast.error("Nomor Sertifikat Isolasi wajib diisi."); return; }
-      if (!certFile) { toast.error("File Sertifikat Isolasi wajib dilampirkan."); return; }
+      if (!certFile && !awal?.wah_isolasi_cert_file_path) { toast.error("File Sertifikat Isolasi wajib dilampirkan."); return; }
     }
 
     const fd = new FormData();
@@ -70,6 +73,9 @@ export default function WahIsolationForm({ onSubmit, busy }) {
               onChange={(e) => setCertFile(e.target.files?.[0] ?? null)}
               className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700"
             />
+            {awal?.wah_isolasi_cert_file_path && !certFile && (
+              <p className="text-xs text-slate-400 mt-1">File tersimpan — unggah file baru untuk mengganti.</p>
+            )}
           </div>
         </div>
       )}
@@ -79,7 +85,7 @@ export default function WahIsolationForm({ onSubmit, busy }) {
         disabled={busy}
         className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-50"
       >
-        {busy ? "Menyimpan..." : "Simpan & Kirim ke PA"}
+        {busy ? "Menyimpan..." : "Simpan Evaluasi Isolasi Energi"}
       </button>
     </div>
   );

@@ -96,7 +96,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     });
     Route::middleware('role:IA')->group(function () {
         Route::put('/permits/{permit}/hazards', [HazardController::class, 'update']);
-        // Bagian 3 (khusus WAH) — bagian IA: keputusan Isolasi Energi
+        // Bagian 3 (khusus WAH) — IA meninjau/mengedit Persiapan yang diisi PA
+        Route::put('/permits/{permit}/wah-preparation', [WahPreparationController::class, 'update']);
+        // Bagian 3 (khusus WAH) — bagian IA: keputusan Isolasi Energi (setelah Persiapan PA)
         Route::post('/permits/{permit}/wah-isolation', [WahIsolationController::class, 'store']);
         // Bagian 3 (khusus CSE) — bagian IA: keputusan Isolasi Energi
         Route::post('/permits/{permit}/cse-isolation', [CseIsolationController::class, 'store']);

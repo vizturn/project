@@ -17,18 +17,25 @@ const PERALATAN = [
   { kode: "ambulance",         label: "Ambulance" },
 ];
 
-export default function WahPreparationForm({ onSubmit, busy }) {
-  const [nomorJsa, setNomorJsa] = useState("");
+export default function WahPreparationForm({ awal, judul, labelTombol, onSubmit, busy }) {
+  const [nomorJsa, setNomorJsa] = useState(awal?.nomor_jsa ?? "");
   const [jsaFile, setJsaFile] = useState(null);
-  const [pakaiPerancah, setPakaiPerancah] = useState(false);
-  const [scaffNomor, setScaffNomor] = useState("");
+  const [pakaiPerancah, setPakaiPerancah] = useState(!!awal?.wah_menggunakan_perancah);
+  const [scaffNomor, setScaffNomor] = useState(awal?.wah_scaffolding_cert_nomor ?? "");
   const [scaffFile, setScaffFile] = useState(null);
 
   // Daftar pekerja: minimal satu baris. Nama diisi manual.
-  const [workers, setWorkers] = useState([{ nama_pekerja: "", sudah_pelatihan: false }]);
-  // Peralatan: { kode: true } untuk yang dicentang.
-  const [peralatan, setPeralatan] = useState({});
-  const [peralatanLainnya, setPeralatanLainnya] = useState("");
+  // Saat awal (mode tinjau IA) tersedia, prefill dari permit.wah_workers.
+  const [workers, setWorkers] = useState(
+    awal?.wah_workers?.length
+      ? awal.wah_workers.map((w) => ({ nama_pekerja: w.nama_pekerja, sudah_pelatihan: !!w.sudah_pelatihan }))
+      : [{ nama_pekerja: "", sudah_pelatihan: false }]
+  );
+  // Peralatan: { kode: true } untuk yang dicentang. Prefill dari array wah_peralatan.
+  const [peralatan, setPeralatan] = useState(
+    Object.fromEntries((awal?.wah_peralatan ?? []).map((k) => [k, true]))
+  );
+  const [peralatanLainnya, setPeralatanLainnya] = useState(awal?.wah_peralatan_lainnya ?? "");
 
   const tambahWorker = () =>
     setWorkers((w) => [...w, { nama_pekerja: "", sudah_pelatihan: false }]);
@@ -77,7 +84,7 @@ export default function WahPreparationForm({ onSubmit, busy }) {
     <div className="space-y-5">
       <div className="flex items-center gap-2">
         <HardHat className="text-amber-600" size={18} />
-        <h2 className="font-semibold text-slate-800">Bagian 3 — Persiapan (WAH)</h2>
+        <h2 className="font-semibold text-slate-800">{judul || "Bagian 3 — Persiapan (WAH)"}</h2>
       </div>
 
       {/* JSA */}
@@ -93,6 +100,9 @@ export default function WahPreparationForm({ onSubmit, busy }) {
           <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             onChange={(e) => setJsaFile(e.target.files?.[0] ?? null)}
             className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber-50 file:text-amber-700" />
+          {awal?.jsa_file_path && !jsaFile && (
+            <p className="text-xs text-slate-400 mt-1">File tersimpan — unggah file baru untuk mengganti.</p>
+          )}
         </div>
       </div>
 
@@ -114,6 +124,9 @@ export default function WahPreparationForm({ onSubmit, busy }) {
             <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
               onChange={(e) => setScaffFile(e.target.files?.[0] ?? null)}
               className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber-50 file:text-amber-700" />
+            {awal?.wah_scaffolding_cert_file_path && !scaffFile && (
+              <p className="text-xs text-slate-400 mt-1">File tersimpan — unggah file baru untuk mengganti.</p>
+            )}
           </div>
         </div>
       )}
@@ -186,7 +199,7 @@ export default function WahPreparationForm({ onSubmit, busy }) {
 
       <button onClick={kirim} disabled={busy}
         className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50">
-        {busy ? "Menyimpan..." : "Simpan Persiapan & Kirim ke IA"}
+        {busy ? "Menyimpan..." : (labelTombol || "Simpan Persiapan & Kirim ke IA")}
       </button>
     </div>
   );
