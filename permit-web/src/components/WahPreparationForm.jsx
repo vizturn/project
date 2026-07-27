@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { HardHat, Users, Wrench, Plus, Trash2 } from "lucide-react";
 
 /**
@@ -37,6 +37,18 @@ export default function WahPreparationForm({ awal, judul, labelTombol, onSubmit,
   );
   const [peralatanLainnya, setPeralatanLainnya] = useState(awal?.wah_peralatan_lainnya ?? "");
 
+  // Penanda "baru saja disimpan di sesi ini" (bukan dari backend). Tombol jadi
+  // abu setelah submit sukses, lalu balik oren begitu ada input yang diubah.
+  const [sudahDisimpan, setSudahDisimpan] = useState(false);
+  const lewatiRenderPertama = useRef(true);
+  useEffect(() => {
+    if (lewatiRenderPertama.current) {
+      lewatiRenderPertama.current = false;
+      return;
+    }
+    setSudahDisimpan(false);
+  }, [nomorJsa, jsaFile, pakaiPerancah, scaffNomor, scaffFile, workers, peralatan, peralatanLainnya]);
+
   const tambahWorker = () =>
     setWorkers((w) => [...w, { nama_pekerja: "", sudah_pelatihan: false }]);
 
@@ -46,7 +58,7 @@ export default function WahPreparationForm({ awal, judul, labelTombol, onSubmit,
   const ubahWorker = (i, field, val) =>
     setWorkers((w) => w.map((row, idx) => (idx === i ? { ...row, [field]: val } : row)));
 
-  const kirim = () => {
+  const kirim = async () => {
     // Validasi ringan di sisi klien sebelum kirim.
     const bersih = workers
       .map((w) => ({ ...w, nama_pekerja: w.nama_pekerja.trim() }))
@@ -77,7 +89,12 @@ export default function WahPreparationForm({ awal, judul, labelTombol, onSubmit,
 
     if (peralatanLainnya.trim()) fd.append("peralatan_lainnya", peralatanLainnya.trim());
 
-    onSubmit(fd);
+    const ok = await onSubmit(fd);
+    if (ok) {
+      // Cegah effect perubahan-input mereset penanda pada render setelah submit.
+      lewatiRenderPertama.current = true;
+      setSudahDisimpan(true);
+    }
   };
 
   return (
@@ -198,8 +215,17 @@ export default function WahPreparationForm({ awal, judul, labelTombol, onSubmit,
       </div>
 
       <button onClick={kirim} disabled={busy}
-        className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50">
-        {busy ? "Menyimpan..." : (labelTombol || "Simpan Persiapan & Kirim ke IA")}
+        className={
+          "px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50 " +
+          (sudahDisimpan
+            ? "bg-slate-400 hover:bg-slate-500"
+            : "bg-amber-600 hover:bg-amber-700")
+        }>
+        {busy
+          ? "Menyimpan..."
+          : sudahDisimpan
+            ? "✓ Tersimpan"
+            : (labelTombol || "Simpan Persiapan & Kirim ke IA")}
       </button>
     </div>
   );

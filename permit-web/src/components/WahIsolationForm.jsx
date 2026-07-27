@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { ShieldCheck } from "lucide-react";
 
@@ -15,7 +15,19 @@ export default function WahIsolationForm({ awal, onSubmit, busy }) {
   const [certNomor, setCertNomor] = useState(awal?.wah_isolasi_cert_nomor ?? "");
   const [certFile, setCertFile] = useState(null);
 
-  const kirim = () => {
+  // Penanda "baru saja disimpan di sesi ini". Abu setelah submit sukses,
+  // balik indigo begitu ada input yang diubah.
+  const [sudahDisimpan, setSudahDisimpan] = useState(false);
+  const lewatiRenderPertama = useRef(true);
+  useEffect(() => {
+    if (lewatiRenderPertama.current) {
+      lewatiRenderPertama.current = false;
+      return;
+    }
+    setSudahDisimpan(false);
+  }, [diperlukan, certNomor, certFile]);
+
+  const kirim = async () => {
     if (diperlukan === null) { toast.error("Pilih apakah Isolasi Energi diperlukan."); return; }
     if (diperlukan) {
       if (!certNomor.trim()) { toast.error("Nomor Sertifikat Isolasi wajib diisi."); return; }
@@ -29,7 +41,11 @@ export default function WahIsolationForm({ awal, onSubmit, busy }) {
       fd.append("wah_isolasi_cert_file", certFile);
     }
 
-    onSubmit(fd);
+    const ok = await onSubmit(fd);
+    if (ok) {
+      lewatiRenderPertama.current = true;
+      setSudahDisimpan(true);
+    }
   };
 
   return (
@@ -83,9 +99,18 @@ export default function WahIsolationForm({ awal, onSubmit, busy }) {
       <button
         onClick={kirim}
         disabled={busy}
-        className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-50"
+        className={
+          "px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50 " +
+          (sudahDisimpan
+            ? "bg-slate-400 hover:bg-slate-500"
+            : "bg-indigo-600 hover:bg-indigo-700")
+        }
       >
-        {busy ? "Menyimpan..." : "Simpan Evaluasi Isolasi Energi"}
+        {busy
+          ? "Menyimpan..."
+          : sudahDisimpan
+            ? "✓ Tersimpan"
+            : "Simpan Evaluasi Isolasi Energi"}
       </button>
     </div>
   );

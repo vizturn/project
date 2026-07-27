@@ -119,6 +119,7 @@ export default function PermitDetailPage() {
       const res = await fn();
       toast.success(res.data?.message || okMsg);
       load();
+      return true;
     } catch (err) {
       // Tampilkan pesan validasi (422) apa adanya agar penyebabnya jelas.
       const data = err.response?.data;
@@ -126,6 +127,7 @@ export default function PermitDetailPage() {
         ? Object.values(data.errors).flat().join(" ")
         : null;
       toast.error(pesanValidasi || data?.message || "Aksi gagal.");
+      return false;
     } finally {
       setBusy(false);
     }
