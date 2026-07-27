@@ -204,7 +204,8 @@ class PermitController extends Controller
         $this->notif(
             $permit->approval_authority_id,
             $permit->id,
-            "Izin {$permit->nomor_izin} menunggu persetujuan Anda."
+            "Izin {$permit->nomor_izin} menunggu persetujuan Anda.",
+            kirimEmail: true
         );
 
         return response()->json(['message' => 'Izin diajukan untuk persetujuan.', 'data' => $permit]);
@@ -259,7 +260,8 @@ class PermitController extends Controller
         $this->notif(
             $permit->performing_authority_id,
             $permit->id,
-            "Izin {$permit->nomor_izin} DISETUJUI. Lengkapi Identifikasi Bahaya (Bagian 3)."
+            "Izin {$permit->nomor_izin} DISETUJUI. Lengkapi Identifikasi Bahaya (Bagian 3).",
+            kirimEmail: true
         );
 
         return response()->json([
@@ -291,7 +293,8 @@ class PermitController extends Controller
         $this->notif(
             $permit->performing_authority_id,
             $permit->id,
-            "Izin {$permit->nomor_izin} Anda DITOLAK." . ($alasan ? " Alasan: {$alasan}" : '')
+            "Izin {$permit->nomor_izin} Anda DITOLAK." . ($alasan ? " Alasan: {$alasan}" : ''),
+            kirimEmail: true
         );
 
         return response()->json(['message' => 'Izin ditolak.', 'data' => $permit]);
@@ -359,7 +362,8 @@ class PermitController extends Controller
         $this->notif(
             $permit->performing_authority_id,
             $permit->id,
-            "Izin {$permit->nomor_izin} telah DITERBITKAN. Silakan lakukan Penerimaan PTW."
+            "Izin {$permit->nomor_izin} telah DITERBITKAN. Silakan lakukan Penerimaan PTW.",
+            kirimEmail: true
         );
 
         return response()->json([
@@ -437,7 +441,8 @@ class PermitController extends Controller
         $this->notif(
             $permit->performing_authority_id,
             $permit->id,
-            "Izin {$permit->nomor_izin} telah DIREVALIDASI IA pada {$direvalidasiPada->format('d-m-Y H:i')}. Status kembali AKTIF."
+            "Izin {$permit->nomor_izin} telah DIREVALIDASI IA pada {$direvalidasiPada->format('d-m-Y H:i')}. Status kembali AKTIF.",
+            kirimEmail: true
         );
 
         return response()->json(['message' => 'Izin direvalidasi (AKTIF).', 'data' => $permit]);

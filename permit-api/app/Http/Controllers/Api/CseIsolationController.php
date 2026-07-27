@@ -64,7 +64,8 @@ class CseIsolationController extends Controller
         $this->notif(
             $permit->performing_authority_id,
             $permit->id,
-            "Izin {$permit->nomor_izin} (CSE): IA telah menentukan kebutuhan Isolasi Energi. Silakan lengkapi Persiapan (petugas jaga & peralatan)."
+            "Izin {$permit->nomor_izin} (CSE): IA telah menentukan kebutuhan Isolasi Energi. Silakan lengkapi Persiapan (petugas jaga & peralatan).",
+            kirimEmail: true
         );
 
         return response()->json(['message' => 'Evaluasi Isolasi Energi CSE tersimpan. Menunggu Persiapan PA.', 'data' => $permit]);

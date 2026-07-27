@@ -108,7 +108,8 @@ class WahPreparationController extends Controller
         $this->notif(
             $permit->issuing_authority_id,
             $permit->id,
-            "Izin {$permit->nomor_izin} (WAH): Persiapan telah diisi PA (daftar pekerja & peralatan). Menunggu Penerbitan."
+            "Izin {$permit->nomor_izin} (WAH): Persiapan telah diisi PA (daftar pekerja & peralatan). Menunggu Penerbitan.",
+            kirimEmail: true
         );
 
         return response()->json([

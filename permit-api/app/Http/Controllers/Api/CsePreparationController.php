@@ -68,7 +68,8 @@ class CsePreparationController extends Controller
             $this->notif(
                 $permit->issuing_authority_id,
                 $permit->id,
-                "Izin {$permit->nomor_izin}: seluruh Bagian 3 lengkap. Menunggu Penerbitan."
+                "Izin {$permit->nomor_izin}: seluruh Bagian 3 lengkap. Menunggu Penerbitan.",
+                kirimEmail: true
             );
         }
 
@@ -76,7 +77,8 @@ class CsePreparationController extends Controller
         $this->notif(
             $data['cse_petugas_jaga_id'],
             $permit->id,
-            "Anda ditetapkan sebagai Petugas Jaga pada izin {$permit->nomor_izin} (CSE)."
+            "Anda ditetapkan sebagai Petugas Jaga pada izin {$permit->nomor_izin} (CSE).",
+            kirimEmail: true
         );
 
         return response()->json([
