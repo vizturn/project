@@ -81,6 +81,7 @@ class PermitController extends Controller
             'revalidations.returnedBy:id,name',
             'revalidations.revalidatedBy:id,name',
             'wahAccessLogs.dicatatOleh:id,name',
+            'wahWorkers',
             'csePetugasJaga:id,name,jabatan',
             'cseAccessLogs.dicatatOleh:id,name',
         ]);

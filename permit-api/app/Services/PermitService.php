@@ -65,29 +65,26 @@ class PermitService
     }
 
     /**
-     * Izin butuh Bagian 3 versi "Identifikasi Bahaya" (HazardController) bila
-     * mencakup jenis izin apa pun SELAIN WAH (HWP, CWP, CSE — WAH punya
-     * formulir Bagian 3 sendiri lewat WahIsolationController/WahPreparationController).
-     */
-    public function butuhHazard(Permit $permit): bool
-    {
-        return $this->jenisIzin($permit)->contains(fn (string $kode) => $kode !== 'WAH');
-    }
-
-    /**
-     * Izin GABUNGAN (mis. HWP + WAH) mengharuskan PA melengkapi SEMUA bagian
-     * Bagian 3 yang relevan (Identifikasi Bahaya PTW ATAU Persiapan WAH, atau
-     * keduanya) sebelum izin boleh lanjut ke tahap IA (menunggu_penerbitan).
-     * Dipakai HazardController & WahPreparationController agar salah satu form
-     * yang disubmit duluan tidak langsung "mendorong" izin ke IA sebelum form
-     * lain yang wajib ikut terisi.
+     * Izin GABUNGAN (mis. HWP + WAH, atau CSE + WAH) mengharuskan PA melengkapi
+     * SEMUA bagian Bagian 3 yang relevan sebelum izin boleh lanjut ke tahap IA
+     * (menunggu_penerbitan). Dipakai HazardController & WahPreparationController
+     * agar salah satu form yang disubmit duluan tidak langsung "mendorong" izin
+     * ke IA sebelum form lain yang wajib ikut terisi.
+     *
+     * Catatan timing: fungsi ini dipanggil DI TENGAH transaksi store (sebelum
+     * penanda *_diisi_at final di-set), jadi kelengkapan tiap jenis dicek lewat
+     * data mentahnya yang sudah tersimpan saat itu:
+     *   - HWP/CWP -> tingkat_risiko (diisi bersama identifikasi bahaya)
+     *   - WAH     -> wah_persiapan_diisi_at
+     *   - CSE     -> cse_persiapan_diisi_at
      */
     public function bagian3Selesai(Permit $permit): bool
     {
-        $hazardOk = ! $this->butuhHazard($permit) || $permit->tingkat_risiko !== null;
-        $wahOk    = ! $this->isWah($permit) || $permit->wah_persiapan_diisi_at !== null;
+        $hazardOk = ! $this->isHwpCwp($permit) || $permit->tingkat_risiko !== null;
+        $wahOk    = ! $this->isWah($permit)    || $permit->wah_persiapan_diisi_at !== null;
+        $cseOk    = ! $this->isCse($permit)    || $permit->cse_persiapan_diisi_at !== null;
 
-        return $hazardOk && $wahOk;
+        return $hazardOk && $wahOk && $cseOk;
     }
 
     /**
