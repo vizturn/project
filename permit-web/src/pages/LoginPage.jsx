@@ -3,13 +3,14 @@ import Button from "../components/Button";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
-import { LogIn } from "lucide-react";
+import { ShieldCheck, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
@@ -31,35 +32,93 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
-      <div className="w-full max-w-sm bg-white rounded-xl shadow p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <LogIn className="text-emerald-600" size={22} />
-          <h1 className="text-lg font-bold text-slate-800">Digital Permit SHE</h1>
+    <div className="min-h-screen grid lg:grid-cols-2 bg-slate-100">
+      {/* Panel kiri - branding (disembunyikan di layar kecil) */}
+      <div className="hidden lg:flex flex-col justify-between bg-brand p-12 text-white relative overflow-hidden">
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/10" />
+        <div className="absolute -bottom-32 -left-16 w-80 h-80 rounded-full bg-black/5" />
+
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="bg-white rounded-lg px-3 py-1.5">
+            <img src="/emp-logo.png" alt="EMP" className="h-7 w-auto" />
+          </div>
+          <span className="font-semibold tracking-wide">Bentu Limited</span>
         </div>
 
-        <label className="block text-sm text-slate-600 mb-1">Email</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-          placeholder="admin@permit.test"
-        />
+        <div className="relative z-10">
+          <h1 className="text-4xl font-bold leading-tight mb-4">
+            Digital Permit<br />to Work
+          </h1>
+          <p className="text-white/85 text-base leading-relaxed max-w-md">
+            Sistem digitalisasi izin kerja untuk operasi migas - pengajuan,
+            persetujuan, dan pemantauan permit dalam satu alur yang aman dan
+            tertelusur.
+          </p>
+        </div>
 
-        <label className="block text-sm text-slate-600 mb-1">Password</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-          className="w-full mb-6 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-          placeholder="password"
-        />
+        <div className="relative z-10 flex items-center gap-2 text-white/80 text-sm">
+          <ShieldCheck size={18} />
+          <span>Safety, Health &amp; Environment</span>
+        </div>
+      </div>
 
-        <Button onClick={handleSubmit} disabled={loading} className="w-full">
-          {loading ? "Masuk..." : "Masuk"}
-        </Button>
+      {/* Panel kanan - form login */}
+      <div className="flex items-center justify-center p-6 lg:p-12">
+        <div className="w-full max-w-sm">
+          <div className="lg:hidden flex items-center gap-2 mb-8">
+            <ShieldCheck className="text-brand" size={24} />
+            <span className="font-bold text-slate-800 text-lg">Digital Permit SHE</span>
+          </div>
+
+          <h2 className="text-2xl font-bold text-slate-800 mb-1">Selamat datang</h2>
+          <p className="text-slate-500 text-sm mb-8">
+            Masuk dengan akun kerja Anda untuk mengakses sistem.
+          </p>
+
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">Email Kerja</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full mb-4 px-3.5 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand transition"
+            placeholder="nama@perusahaan.com"
+          />
+
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">Password</label>
+          <div className="relative mb-6">
+            <input
+              type={showPass ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              className="w-full px-3.5 py-2.5 pr-11 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand transition"
+              placeholder="Masukkan password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPass((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              aria-label={showPass ? "Sembunyikan password" : "Tampilkan password"}
+            >
+              {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+
+          <Button onClick={handleSubmit} disabled={loading} className="w-full">
+            {loading ? "Masuk..." : "Masuk"}
+          </Button>
+
+          <p className="text-center text-sm text-slate-500 mt-6">
+            Belum punya akun?{" "}
+            <button
+              type="button"
+              onClick={() => toast.info("Fitur permintaan akun akan segera tersedia.")}
+              className="text-brand font-medium hover:underline"
+            >
+              Ajukan pembuatan akun
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );
