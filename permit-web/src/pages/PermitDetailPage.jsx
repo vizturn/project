@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import Button from "../components/Button";
 import { useNavigate, useParams } from "react-router-dom";
 import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit } from "../services/permitService";
 import { getPsbTypes } from "../services/masterService";
@@ -608,18 +609,16 @@ export default function PermitDetailPage() {
         {/* ===== PANEL AKSI (sesuai role + status) ===== */}
 {/* PA ubah draft — hanya saat draft & pemilik */}
 {S === "draft" && isOwnerPA && (
-          <button onClick={() => navigate(`/permits/${id}/edit`)} disabled={busy}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-medium hover:bg-emerald-50 disabled:opacity-50 mr-2">
+          <Button variant="outline" onClick={() => navigate(`/permits/${id}/edit`)} busy={busy} className="mr-2">
             <PencilLine size={16} /> Ubah Draft
-          </button>
+          </Button>
         )}
         {/* S11: PA ajukan draft */}
         {S === "draft" && isOwnerPA && (
           <div className="bg-white rounded-xl shadow p-6">
-            <button onClick={() => run(() => submitPermit(id), "Izin diajukan.")} disabled={busy}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+            <Button onClick={() => run(() => submitPermit(id), "Izin diajukan.")} busy={busy}>
               <Send size={16} /> Ajukan untuk Persetujuan
-            </button>
+            </Button>
           </div>
         )}
 
@@ -659,15 +658,14 @@ export default function PermitDetailPage() {
               })}
             </div>
             <div className="flex gap-2 pt-2">
-              <button onClick={doApprove} disabled={busy} className="flex items-center gap-1 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+              <Button onClick={doApprove} busy={busy}>
                 <CheckCircle2 size={16} /> Setujui
-              </button>
+              </Button>
               <input value={alasan} onChange={(e) => setAlasan(e.target.value)} placeholder="Alasan penolakan (opsional)"
                 className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-              <button onClick={() => run(() => rejectPermit(id, alasan), "Izin ditolak.")} disabled={busy}
-                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+              <Button variant="danger" onClick={() => run(() => rejectPermit(id, alasan), "Izin ditolak.")} busy={busy}>
                 <XCircle size={16} /> Tolak
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -830,10 +828,9 @@ export default function PermitDetailPage() {
                 </label>
               </div>
             )}
-            <button onClick={doIssue} disabled={busy}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+            <Button onClick={doIssue} busy={busy}>
               <FileCheck2 size={16} /> Terbitkan Izin
-            </button>
+            </Button>
           </div>
         )}
 
@@ -873,13 +870,9 @@ export default function PermitDetailPage() {
               />
               Saya menyatakan telah membaca, memahami, dan menerima PTW ini.
             </label>
-            <button
-              onClick={doAccept}
-              disabled={busy}
-              className="px-4 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-50"
-            >
-              Terima PTW & Aktifkan
-            </button>
+            <Button onClick={doAccept} busy={busy}>
+              Terima PTW &amp; Aktifkan
+            </Button>
           </div>
         )}
 
@@ -913,17 +906,15 @@ export default function PermitDetailPage() {
                   <input type="time" value={jamKembali} onChange={(e) => setJamKembali(e.target.value)}
                     className="block px-3 py-2 border border-slate-300 rounded-lg text-sm" />
                 </label>
-                <button onClick={doReturn} disabled={busy}
-                  className="flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">
+                <Button variant="outline" onClick={doReturn} busy={busy}>
                   <RotateCcw size={16} /> Kembalikan (Tunda)
-                </button>
+                </Button>
               </div>
             </div>
             <div className="pt-2 border-t border-slate-100">
-              <button onClick={() => run(() => completePermit(id), "Pekerjaan selesai.")} disabled={busy}
-                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">
+              <Button onClick={() => run(() => completePermit(id), "Pekerjaan selesai.")} busy={busy}>
                 <CheckCheck size={16} /> Selesaikan Pekerjaan
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -946,10 +937,9 @@ export default function PermitDetailPage() {
                 <input type="time" value={jamRevalidasi} onChange={(e) => setJamRevalidasi(e.target.value)}
                   className="block px-3 py-2 border border-slate-300 rounded-lg text-sm" />
               </label>
-              <button onClick={doRevalidate} disabled={busy}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+              <Button onClick={doRevalidate} busy={busy}>
                 <RefreshCw size={16} /> Kirim Revalidasi ke PA
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -957,10 +947,9 @@ export default function PermitDetailPage() {
         {/* S17: IA tutup (saat selesai) */}
         {S === "selesai" && hasRole("IA") && (
           <div className="bg-white rounded-xl shadow p-6">
-            <button onClick={() => run(() => closePermit(id), "Izin ditutup.")} disabled={busy}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 text-white hover:bg-slate-800 disabled:opacity-50">
+            <Button variant="danger" onClick={() => run(() => closePermit(id), "Izin ditutup.")} busy={busy}>
               <Lock size={16} /> Tutup Izin
-            </button>
+            </Button>
           </div>
         )}
 
@@ -970,10 +959,9 @@ export default function PermitDetailPage() {
             <div className="flex items-center gap-2"><ClipboardCheck className="text-emerald-600" size={18} /><h2 className="font-semibold text-slate-800">Live Audit (Supervisor)</h2></div>
             <textarea value={catatanAudit} onChange={(e) => setCatatanAudit(e.target.value)} rows={2}
               placeholder="Catatan temuan (opsional)" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-            <button onClick={() => run(() => addLiveAudit(id, catatanAudit || null), "Live audit tercatat.")} disabled={busy}
-              className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+            <Button onClick={() => run(() => addLiveAudit(id, catatanAudit || null), "Live audit tercatat.")} busy={busy}>
               Catat Live Audit
-            </button>
+            </Button>
           </div>
         )}
 

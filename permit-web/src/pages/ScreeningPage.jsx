@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Button from "../components/Button";
 import { useNavigate } from "react-router-dom";
 import { getCriteria, createScreening } from "../services/screeningService";
 import { toast } from "sonner";
@@ -88,9 +89,9 @@ export default function ScreeningPage() {
 
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-500">{jumlahDicentang} kriteria dicentang</span>
-                <button onClick={submit} disabled={submitting} className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
+                <Button onClick={submit} disabled={submitting}>
                   {submitting ? "Menyimpan..." : "Simpan Penapisan"}
-                </button>
+                </Button>
               </div>
             </>
           )}

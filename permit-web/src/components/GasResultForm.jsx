@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Button from "./Button";
 import { Gauge } from "lucide-react";
 
 /**
@@ -49,13 +50,7 @@ export default function GasResultForm({ onSubmit, busy }) {
         ))}
       </div>
 
-      <button
-        onClick={kirim}
-        disabled={busy}
-        className="px-4 py-2 rounded-lg bg-cyan-600 text-white font-medium hover:bg-cyan-700 disabled:opacity-50"
-      >
-        {busy ? "Menyimpan..." : "Simpan Hasil Uji Gas"}
-      </button>
+      <Button onClick={kirim} busy={busy}>Simpan Hasil Uji Gas</Button>
     </div>
   );
 }

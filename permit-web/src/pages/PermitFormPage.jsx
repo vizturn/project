@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Button from "../components/Button";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { getPermitTypes, getWorkOrders, getEquipment } from "../services/masterService";
 import { getUsersByRole } from "../services/userService";
@@ -189,7 +190,7 @@ export default function PermitFormPage() {
           <input
             value={form.lokasi}
             onChange={(e) => setField("lokasi", e.target.value)}
-            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
             placeholder="Mis. Area Stasiun Pengumpul A"
           />
 
@@ -198,7 +199,7 @@ export default function PermitFormPage() {
             value={form.deskripsi_pekerjaan}
             onChange={(e) => setField("deskripsi_pekerjaan", e.target.value)}
             rows={3}
-            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
             placeholder="Uraian singkat pekerjaan"
           />
 
@@ -206,7 +207,7 @@ export default function PermitFormPage() {
           <input
             value={form.durasi}
             onChange={(e) => setField("durasi", e.target.value)}
-            className="w-full mb-6 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full mb-6 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
             placeholder="Mis. 2 hari / 8 jam"
           />
 
@@ -216,7 +217,7 @@ export default function PermitFormPage() {
 
             <label className="block text-sm text-slate-600 mb-1">Approval Authority (AA) *</label>
             <select value={form.approval_authority_id} onChange={(e) => setField("approval_authority_id", e.target.value)}
-              className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand">
               <option value="">— Pilih AA —</option>
               {aaList.map((u) => (
                 <option key={u.id} value={u.id}>{u.name}{u.jabatan ? ` — ${u.jabatan}` : ""}</option>
@@ -225,7 +226,7 @@ export default function PermitFormPage() {
 
             <label className="block text-sm text-slate-600 mb-1">Issuing Authority (IA) *</label>
             <select value={form.issuing_authority_id} onChange={(e) => setField("issuing_authority_id", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand">
               <option value="">— Pilih IA —</option>
               {iaList.map((u) => (
                 <option key={u.id} value={u.id}>{u.name}{u.jabatan ? ` — ${u.jabatan}` : ""}</option>
@@ -235,7 +236,7 @@ export default function PermitFormPage() {
 
           <label className="block text-sm text-slate-600 mb-1">Reference WO (opsional)</label>
           <select value={form.wo_id} onChange={(e) => setField("wo_id", e.target.value)}
-            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand">
             <option value="">— Tidak dipilih —</option>
             {workOrders.map((w) => (
               <option key={w.id} value={w.id}>{w.wo_number} — {w.deskripsi}</option>
@@ -244,16 +245,16 @@ export default function PermitFormPage() {
 
           <label className="block text-sm text-slate-600 mb-1">Peralatan (opsional)</label>
           <select value={form.equipment_id} onChange={(e) => setField("equipment_id", e.target.value)}
-            className="w-full mb-6 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            className="w-full mb-6 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand">
             <option value="">— Tidak dipilih —</option>
             {equipment.map((e2) => (
               <option key={e2.id} value={e2.id}>{e2.nama_alat} ({e2.status_kalibrasi})</option>
             ))}
           </select>
 
-          <button onClick={submit} disabled={saving} className="w-full py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50">
+          <Button onClick={submit} disabled={saving} className="w-full">
             {saving ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Buat Pengajuan (Draft)"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Button from "./Button";
 import { getHazardOptions } from "../services/hazardService";
 import { toast } from "sonner";
 import { AlertTriangle } from "lucide-react";
@@ -144,13 +145,7 @@ export default function HazardForm({ permit, awal, judul, labelTombol, onSubmit,
         </div>
       </div>
 
-      <button
-        onClick={kirim}
-        disabled={busy}
-        className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700 disabled:opacity-50"
-      >
-        {busy ? "Menyimpan..." : labelTombol}
-      </button>
+      <Button onClick={kirim} busy={busy}>{labelTombol}</Button>
     </div>
   );
 }

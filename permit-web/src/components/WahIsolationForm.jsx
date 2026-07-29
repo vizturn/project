@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Button from "./Button";
 import { toast } from "sonner";
 import { ShieldCheck } from "lucide-react";
 
@@ -96,22 +97,9 @@ export default function WahIsolationForm({ awal, onSubmit, busy }) {
         </div>
       )}
 
-      <button
-        onClick={kirim}
-        disabled={busy}
-        className={
-          "px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50 " +
-          (sudahDisimpan
-            ? "bg-slate-400 hover:bg-slate-500"
-            : "bg-indigo-600 hover:bg-indigo-700")
-        }
-      >
-        {busy
-          ? "Menyimpan..."
-          : sudahDisimpan
-            ? "✓ Tersimpan"
-            : "Simpan Evaluasi Isolasi Energi"}
-      </button>
+      <Button onClick={kirim} busy={busy} variant={sudahDisimpan ? "saved" : "primary"}>
+        {sudahDisimpan ? "✓ Tersimpan" : "Simpan Evaluasi Isolasi Energi"}
+      </Button>
     </div>
   );
 }

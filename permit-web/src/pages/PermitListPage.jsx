@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import Button from "../components/Button";
 import { useNavigate } from "react-router-dom";
 import { getPermits } from "../services/permitService";
 import { useAuth } from "../context/AuthContext";
@@ -42,9 +43,7 @@ export default function PermitListPage() {
                 <Inbox size={16} /> {inbox ? "Untuk Saya" : "Semua Izin"}
               </button>
               {hasRole("PA") && (
-                <button onClick={() => navigate("/permits/new")} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700">
-                  <Plus size={16} /> Pengajuan Baru
-                </button>
+                <Button onClick={() => navigate("/permits/new")}><Plus size={16} /> Pengajuan Baru</Button>
               )}
             </div>
           </div>

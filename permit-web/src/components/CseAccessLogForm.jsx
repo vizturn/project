@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Button from "./Button";
 import { toast } from "sonner";
 import { LogIn } from "lucide-react";
 
@@ -76,10 +77,7 @@ export default function CseAccessLogForm({ onSubmit, busy }) {
         </div>
       </div>
 
-      <button onClick={kirim} disabled={busy}
-        className="px-4 py-2 rounded-lg bg-orange-600 text-white font-medium hover:bg-orange-700 disabled:opacity-50">
-        {busy ? "Menyimpan..." : "Catat"}
-      </button>
+      <Button onClick={kirim} busy={busy}>Catat</Button>
     </div>
   );
 }

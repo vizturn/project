@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Button from "./Button";
 import { HardHat, Users, Wrench, Plus, Trash2 } from "lucide-react";
 
 /**
@@ -214,19 +215,9 @@ export default function WahPreparationForm({ awal, judul, labelTombol, onSubmit,
         </div>
       </div>
 
-      <button onClick={kirim} disabled={busy}
-        className={
-          "px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50 " +
-          (sudahDisimpan
-            ? "bg-slate-400 hover:bg-slate-500"
-            : "bg-amber-600 hover:bg-amber-700")
-        }>
-        {busy
-          ? "Menyimpan..."
-          : sudahDisimpan
-            ? "✓ Tersimpan"
-            : (labelTombol || "Simpan Persiapan & Kirim ke IA")}
-      </button>
+      <Button onClick={kirim} busy={busy} variant={sudahDisimpan ? "saved" : "primary"}>
+        {sudahDisimpan ? "✓ Tersimpan" : (labelTombol || "Simpan Persiapan & Kirim ke IA")}
+      </Button>
     </div>
   );
 }

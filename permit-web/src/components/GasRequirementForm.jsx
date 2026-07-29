@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Button from "./Button";
 import { FlaskConical } from "lucide-react";
 
 /**
@@ -68,13 +69,9 @@ export default function GasRequirementForm({ awal, onSubmit, busy }) {
         />
       </div>
 
-      <button
-        onClick={kirim}
-        disabled={busy}
-        className="px-4 py-2 rounded-lg bg-cyan-600 text-white font-medium hover:bg-cyan-700 disabled:opacity-50"
-      >
-        {busy ? "Menyimpan..." : sudah ? "Perbarui Bagian 5" : "Simpan Bagian 5"}
-      </button>
+      <Button onClick={kirim} busy={busy}>
+        {sudah ? "Perbarui Bagian 5" : "Simpan Bagian 5"}
+      </Button>
     </div>
   );
 }

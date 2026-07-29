@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Button from "./Button";
 import { toast } from "sonner";
 import { ShieldCheck } from "lucide-react";
 
@@ -68,10 +69,7 @@ export default function CseIsolationForm({ onSubmit, busy }) {
         </div>
       )}
 
-      <button onClick={kirim} disabled={busy}
-        className="px-4 py-2 rounded-lg bg-orange-600 text-white font-medium hover:bg-orange-700 disabled:opacity-50">
-        {busy ? "Menyimpan..." : "Simpan & Kirim ke PA"}
-      </button>
+      <Button onClick={kirim} busy={busy}>Simpan &amp; Kirim ke PA</Button>
     </div>
   );
 }

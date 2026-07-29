@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Button from "../components/Button";
 import { useNavigate } from "react-router-dom";
 import { getScreenings } from "../services/screeningService";
 import { useAuth } from "../context/AuthContext";
@@ -32,9 +33,7 @@ export default function ScreeningListPage() {
               <h1 className="text-lg font-bold text-slate-800">Daftar Penapisan</h1>
             </div>
             {hasRole("PA") && (
-              <button onClick={() => navigate("/screening/new")} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700">
-                <Plus size={16} /> Penapisan Baru
-              </button>
+              <Button onClick={() => navigate("/screening/new")}><Plus size={16} /> Penapisan Baru</Button>
             )}
           </div>
 

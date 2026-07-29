@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Button from "./Button";
 import { toast } from "sonner";
 import { ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 
@@ -44,10 +45,7 @@ export default function WahAccessLogForm({ onSubmit, busy }) {
         <input value={catatan} onChange={(e) => setCatatan(e.target.value)}
           className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="Opsional" />
       </div>
-      <button onClick={kirim} disabled={busy}
-        className="px-4 py-2 rounded-lg bg-teal-600 text-white font-medium hover:bg-teal-700 disabled:opacity-50">
-        {busy ? "Menyimpan..." : "Catat Naik/Turun"}
-      </button>
+      <Button onClick={kirim} busy={busy}>Catat Naik/Turun</Button>
     </div>
   );
 }

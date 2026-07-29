@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Button from "./Button";
 import { FileStack } from "lucide-react";
 
 /**
@@ -93,13 +94,9 @@ export default function ReferenceForm({ awal, onSubmit, busy }) {
         />
       </div>
 
-      <button
-        onClick={kirim}
-        disabled={busy}
-        className="px-4 py-2 rounded-lg bg-cyan-600 text-white font-medium hover:bg-cyan-700 disabled:opacity-50"
-      >
-        {busy ? "Menyimpan..." : sudahDiisi ? "Perbarui Bagian 4" : "Simpan Bagian 4"}
-      </button>
+      <Button onClick={kirim} busy={busy}>
+        {sudahDiisi ? "Perbarui Bagian 4" : "Simpan Bagian 4"}
+      </Button>
     </div>
   );
 }

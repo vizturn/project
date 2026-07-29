@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+/* Warna brand EMP (dari logo #53b74a) — didefinisikan sekali di sini,
+   dipakai di seluruh app lewat util Tailwind: bg-brand, text-brand, dll.
+   Ubah nilai di sini = semua tombol/aksen brand ikut berubah. */
+@theme {
+  --color-brand: #53b74a;        /* hijau EMP utama */
+  --color-brand-dark: #469a3e;   /* hover — sedikit lebih gelap agar teks putih tetap kontras */
+  --color-brand-light: #b3e2ae;  /* aksen muda / border */
+  --color-brand-50: #e8ffe5;     /* background lembut / hover ringan */
+}
