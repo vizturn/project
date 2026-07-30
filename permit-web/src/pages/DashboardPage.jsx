@@ -48,8 +48,6 @@ const WARNA_STATUS = {
   closed: "text-slate-500",
 };
 
-const warnaStatus = (s) => WARNA_STATUS[s] ?? "text-slate-500";
-
 // Urutan tampil kartu status: ikuti perjalanan izin (menunggu -> positif ->
 // masalah -> netral). Status yang tidak ada datanya otomatis dilewati.
 const URUTAN_STATUS = [
@@ -75,17 +73,49 @@ const urutkanStatus = (byStatus) =>
     return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
   });
 
-// Kartu statistik satu status: ikon + label + angka, berwarna per kategori.
-function KartuStatus({ status, jumlah }) {
-  const Ikon = IKON_STATUS[status] ?? FileText;
-  const warna = warnaStatus(status);
+// Status yang digabung menjadi satu kartu "Pending Review".
+const STATUS_MENUNGGU = [
+  "menunggu_approval",
+  "menunggu_persiapan_pa",
+  "menunggu_penerbitan",
+  "menunggu_penerimaan",
+  "ditunda",
+];
+
+// Ringkas by_status: jumlahkan semua status menunggu jadi satu angka "pending",
+// sisanya (non-menunggu) dikembalikan terurut sebagai entri terpisah.
+function ringkasStatus(byStatus) {
+  let pending = 0;
+  const lain = {};
+  for (const [s, jml] of Object.entries(byStatus)) {
+    if (STATUS_MENUNGGU.includes(s)) pending += jml;
+    else lain[s] = jml;
+  }
+  return { pending, lain: urutkanStatus(lain) };
+}
+
+const warnaStatus = (s) => WARNA_STATUS[s] ?? "text-slate-500";
+
+// Kartu statistik: ikon + label + angka, berwarna per kategori. Bisa diklik.
+function KartuStatus({ status, label, jumlah, icon, warna: warnaProp, onClick }) {
+  const Ikon = icon ?? IKON_STATUS[status] ?? FileText;
+  const warna = warnaProp ?? warnaStatus(status);
+  const teks = label ?? statusLabel(status);
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 border border-slate-100 flex flex-col justify-between min-h-[104px]">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={
+        "bg-white rounded-xl shadow-sm p-4 border border-slate-100 flex flex-col justify-between min-h-[104px] text-left w-full " +
+        (onClick ? "hover:shadow-md hover:border-brand-light transition cursor-pointer" : "cursor-default")
+      }
+    >
       <div className="flex items-start gap-1.5 text-slate-500 text-xs">
-        <Ikon size={14} className={warna + " shrink-0 mt-0.5"} /> {statusLabel(status)}
+        <Ikon size={14} className={warna + " shrink-0 mt-0.5"} /> {teks}
       </div>
       <div className={"text-2xl font-bold " + warna}>{jumlah}</div>
-    </div>
+    </button>
   );
 }
 
@@ -136,7 +166,7 @@ export default function DashboardPage() {
 
   const menu = [
     { to: "/screening", icon: ClipboardList, judul: "Penapisan", ket: "Tentukan apakah pekerjaan butuh izin kerja." },
-    { to: "/permits", icon: FileText, judul: "Izin Kerja", ket: "Ajukan, setujui, uji gas, dan terbitkan izin." },
+    { to: "/permits", icon: FileText, judul: "Izin Kerja", ket: "Buat pengajuan baru & kelola seluruh izin kerja." },
     { to: "/board", icon: LayoutGrid, judul: "Papan Izin", ket: "Pantau izin Aktif / Ditunda / Closed real-time." },
     { to: "/notifications", icon: Bell, judul: "Notifikasi", ket: "Pemberitahuan izin ditunda / kadaluarsa." },
   ];
@@ -178,15 +208,27 @@ export default function DashboardPage() {
               <div className="text-sm text-slate-400">Memuat statistik…</div>
             ) : summary ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl shadow-sm p-4 border border-slate-100 flex flex-col justify-between min-h-[104px]">
-                  <div className="flex items-start gap-1.5 text-slate-500 text-xs">
-                    <FileStack size={14} className="text-blue-600 shrink-0 mt-0.5" /> Total Izin
-                  </div>
-                  <div className="text-2xl font-bold text-blue-700">{summary.total ?? 0}</div>
-                </div>
-                {urutkanStatus(byStatus).map(([s, jml]) => (
-                  <KartuStatus key={s} status={s} jumlah={jml} />
-                ))}
+                <KartuStatus
+                  label="Total Izin" jumlah={summary.total ?? 0}
+                  icon={FileStack} warna="text-blue-700"
+                  onClick={() => navigate("/permits?scope=all")}
+                />
+                {(() => {
+                  const { pending, lain } = ringkasStatus(byStatus);
+                  return (
+                    <>
+                      <KartuStatus
+                        label="Pending Review" jumlah={pending}
+                        icon={Clock} warna="text-amber-600"
+                        onClick={() => navigate("/permits?status=menunggu&scope=all")}
+                      />
+                      {lain.map(([s, jml]) => (
+                        <KartuStatus key={s} status={s} jumlah={jml}
+                          onClick={() => navigate(`/permits?status=${s}&scope=all`)} />
+                      ))}
+                    </>
+                  );
+                })()}
               </div>
             ) : (
               <div className="text-sm text-slate-400">Statistik belum tersedia.</div>
@@ -221,15 +263,27 @@ export default function DashboardPage() {
                     Izin Saya — {LABEL_PERAN[peran] ?? peran}
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                    <div className="bg-white rounded-xl shadow-sm p-4 border border-slate-100 flex flex-col justify-between min-h-[104px]">
-                      <div className="flex items-start gap-1.5 text-slate-500 text-xs">
-                        <FileStack size={14} className="text-blue-600 shrink-0 mt-0.5" /> Total
-                      </div>
-                      <div className="text-2xl font-bold text-blue-700">{data.total ?? 0}</div>
-                    </div>
-                    {urutkanStatus(data.by_status ?? {}).map(([s, jml]) => (
-                      <KartuStatus key={s} status={s} jumlah={jml} />
-                    ))}
+                    <KartuStatus
+                      label="Total" jumlah={data.total ?? 0}
+                      icon={FileStack} warna="text-blue-700"
+                      onClick={() => navigate("/permits")}
+                    />
+                    {(() => {
+                      const { pending, lain } = ringkasStatus(data.by_status ?? {});
+                      return (
+                        <>
+                          <KartuStatus
+                            label="Pending Review" jumlah={pending}
+                            icon={Clock} warna="text-amber-600"
+                            onClick={() => navigate("/permits?status=menunggu")}
+                          />
+                          {lain.map(([s, jml]) => (
+                            <KartuStatus key={s} status={s} jumlah={jml}
+                              onClick={() => navigate(`/permits?status=${s}`)} />
+                          ))}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               ))
