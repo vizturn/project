@@ -117,6 +117,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 
+    /* Statistik personal per peran (semua role — tiap user lihat data sendiri) */
+    Route::get('/dashboard/my-summary', [ReportController::class, 'mySummary']);
+
     /* ===== STEP 20 — Audit Log & Rekap (SHE/ADM) ===== */
     Route::middleware('role:SHE,ADM')->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
