@@ -33,30 +33,31 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-slate-100">
-      {/* Panel kiri - branding (disembunyikan di layar kecil) */}
-      <div className="hidden lg:flex flex-col justify-between bg-brand p-12 text-white relative overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/10" />
-        <div className="absolute -bottom-32 -left-16 w-80 h-80 rounded-full bg-black/5" />
+      {/* Panel kiri - branding dengan gambar latar + overlay gelap */}
+      <div
+        className="hidden lg:flex flex-col justify-between p-12 text-white relative overflow-hidden bg-cover"
+        style={{ backgroundImage: "url('/login-bg.jpg')", backgroundPosition: "center 68%" }}
+      >
+        {/* overlay gelap agar teks tetap terbaca */}
+        <div className="absolute inset-0 bg-black/55" />
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="bg-white rounded-lg px-3 py-1.5">
-            <img src="/emp-logo.png" alt="EMP" className="h-7 w-auto" />
-          </div>
-          <span className="font-semibold tracking-wide">Bentu Limited</span>
+          <img src="/emp-logo.png" alt="EMP" className="h-9 w-auto block" />
+          <span className="font-semibold tracking-wide leading-none -mt-1">Bentu Limited</span>
         </div>
 
         <div className="relative z-10">
           <h1 className="text-4xl font-bold leading-tight mb-4">
             Digital Permit<br />to Work
           </h1>
-          <p className="text-white/85 text-base leading-relaxed max-w-md">
+          <p className="text-white/90 text-base leading-relaxed max-w-md">
             Sistem digitalisasi izin kerja untuk operasi migas - pengajuan,
             persetujuan, dan pemantauan permit dalam satu alur yang aman dan
             tertelusur.
           </p>
         </div>
 
-        <div className="relative z-10 flex items-center gap-2 text-white/80 text-sm">
+        <div className="relative z-10 flex items-center gap-2 text-white/85 text-sm">
           <ShieldCheck size={18} />
           <span>Safety, Health &amp; Environment</span>
         </div>
