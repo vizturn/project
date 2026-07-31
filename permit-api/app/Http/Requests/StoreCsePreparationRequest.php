@@ -23,6 +23,8 @@ class StoreCsePreparationRequest extends FormRequest
         return [
             'cse_petugas_jaga_id' => ['required', 'integer', 'exists:users,id'],
             'cse_alat_komunikasi' => ['nullable', 'string', 'max:100'],
+            'nomor_jsa'           => ['nullable', 'string', 'max:50'],
+            'jsa_file'            => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'peralatan'           => ['nullable', 'array'],
             'peralatan.*'         => ['string', 'max:50'],
             'peralatan_lainnya'   => ['nullable', 'string', 'max:255'],

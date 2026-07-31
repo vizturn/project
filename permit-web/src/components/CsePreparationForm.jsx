@@ -24,6 +24,8 @@ export default function CsePreparationForm({ onSubmit, busy }) {
   const [pjList, setPjList] = useState([]);
   const [petugasJagaId, setPetugasJagaId] = useState("");
   const [alatKomunikasi, setAlatKomunikasi] = useState("");
+  const [nomorJsa, setNomorJsa] = useState("");
+  const [jsaFile, setJsaFile] = useState(null);
   const [peralatan, setPeralatan] = useState({});
   const [peralatanLainnya, setPeralatanLainnya] = useState("");
   const [loading, setLoading] = useState(true);
@@ -44,6 +46,8 @@ export default function CsePreparationForm({ onSubmit, busy }) {
     onSubmit({
       cse_petugas_jaga_id: Number(petugasJagaId),
       cse_alat_komunikasi: alatKomunikasi.trim() || null,
+      nomor_jsa: nomorJsa.trim() || null,
+      jsa_file: jsaFile,
       peralatan: Object.keys(peralatan).filter((k) => peralatan[k]),
       peralatan_lainnya: peralatanLainnya.trim() || null,
     });
@@ -93,6 +97,27 @@ export default function CsePreparationForm({ onSubmit, busy }) {
           className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
           placeholder="Mis. HT Channel 3 (opsional)"
         />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm text-slate-600 mb-1">Nomor Job Safety Analysis (JSA)</label>
+          <input
+            value={nomorJsa}
+            onChange={(e) => setNomorJsa(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            placeholder="Opsional"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-slate-600 mb-1">File JSA (PDF/JPG/PNG)</label>
+          <input
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png"
+            onChange={(e) => setJsaFile(e.target.files?.[0] ?? null)}
+            className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand"
+          />
+        </div>
       </div>
 
       {/* Peralatan khusus */}

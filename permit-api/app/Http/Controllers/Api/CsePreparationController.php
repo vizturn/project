@@ -40,9 +40,16 @@ class CsePreparationController extends Controller
 
         $data = $request->validated();
 
+        $jsaPath = $permit->jsa_file_path;
+        if ($request->hasFile('jsa_file')) {
+            $jsaPath = $request->file('jsa_file')->store('jsa/' . $permit->id, 'public');
+        }
+
         $permit->update([
             'cse_petugas_jaga_id'    => $data['cse_petugas_jaga_id'],
             'cse_alat_komunikasi'    => $data['cse_alat_komunikasi'] ?? null,
+            'nomor_jsa'              => $data['nomor_jsa'] ?? null,
+            'jsa_file_path'          => $jsaPath,
             'cse_peralatan'          => $data['peralatan'] ?? [],
             'cse_peralatan_lainnya'  => $data['peralatan_lainnya'] ?? null,
             'cse_persiapan_diisi_at' => now(),

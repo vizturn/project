@@ -369,6 +369,13 @@ export default function PermitDetailPage() {
                 <span className="font-medium">Peralatan Komunikasi:</span>{" "}
                 {permit.cse_alat_komunikasi || "-"}
               </div>
+              <div>
+                <span className="font-medium">Nomor JSA:</span> {permit.nomor_jsa || "-"}
+                {permit.jsa_file_path && (
+                  <a href={wahFileUrl(permit.jsa_file_path)} target="_blank" rel="noreferrer"
+                    className="ml-2 text-blue-600 hover:underline">Lihat file</a>
+                )}
+              </div>
             </dl>
 
             <div className="mt-3">
@@ -529,7 +536,13 @@ export default function PermitDetailPage() {
               {permit.bahaya_lainnya && (
                 <div><span className="font-medium">Bahaya lainnya:</span> {permit.bahaya_lainnya}</div>
               )}
-              <div><span className="font-medium">Nomor JSA:</span> {permit.nomor_jsa || "-"}</div>
+              <div>
+                <span className="font-medium">Nomor JSA:</span> {permit.nomor_jsa || "-"}
+                {permit.jsa_file_path && (
+                  <a href={wahFileUrl(permit.jsa_file_path)} target="_blank" rel="noreferrer"
+                    className="ml-2 text-blue-600 hover:underline">Lihat file</a>
+                )}
+              </div>
               <div>
                 <span className="font-medium">Tingkat risiko:</span>{" "}
                 {permit.tingkat_risiko

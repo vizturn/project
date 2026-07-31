@@ -70,7 +70,7 @@ class HazardController extends Controller
 
         $statusLama = $permit->status;
 
-        $this->simpanBahaya($permit, $request->validated());
+        $this->simpanBahaya($permit, $request->validated(), $request);
         $permit->refresh();
 
         // Izin GABUNGAN (mis. HWP/CWP + WAH) baru boleh lanjut ke IA setelah
@@ -140,7 +140,7 @@ class HazardController extends Controller
             ], 422);
         }
 
-        $this->simpanBahaya($permit, $request->validated());
+        $this->simpanBahaya($permit, $request->validated(), $request);
 
         $this->service->recordTransition(
             $permit, 'menunggu_penerbitan', 'menunggu_penerbitan', $user, 'review_hazards'
@@ -155,10 +155,18 @@ class HazardController extends Controller
     /**
      * Tulis ulang daftar bahaya (replace) + field Bagian 3 pada izin.
      * Replace dipilih agar IA dapat MENAMBAH maupun MENGHAPUS centangan.
+     * File JSA (opsional): jika ada unggahan baru, simpan & ganti; jika tidak,
+     * pertahankan file yang sudah ada.
      */
-    private function simpanBahaya(Permit $permit, array $data): void
+    private function simpanBahaya(Permit $permit, array $data, $request = null): void
     {
-        DB::transaction(function () use ($permit, $data) {
+        // Simpan file JSA di luar transaksi (operasi filesystem).
+        $jsaPath = $permit->jsa_file_path;
+        if ($request && $request->hasFile('jsa_file')) {
+            $jsaPath = $request->file('jsa_file')->store('jsa/' . $permit->id, 'public');
+        }
+
+        DB::transaction(function () use ($permit, $data, $jsaPath) {
             $permit->hazards()->delete();
 
             foreach ($data['hazards'] as $kelompok) {
@@ -185,6 +193,7 @@ class HazardController extends Controller
 
             $permit->update([
                 'nomor_jsa'      => $data['nomor_jsa'] ?? null,
+                'jsa_file_path'  => $jsaPath,
                 'tingkat_risiko' => $data['tingkat_risiko'],
                 'bahaya_lainnya' => $data['bahaya_lainnya'] ?? null,
             ]);

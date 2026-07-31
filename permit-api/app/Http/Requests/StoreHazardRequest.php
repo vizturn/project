@@ -28,6 +28,7 @@ class StoreHazardRequest extends FormRequest
             'hazards.*.no_bahaya.*'      => ['integer', 'min:1'],
 
             'nomor_jsa'      => ['nullable', 'string', 'max:50'],
+            'jsa_file'       => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'tingkat_risiko' => ['required', 'in:tinggi,sedang,rendah'],
             'bahaya_lainnya' => ['nullable', 'string', 'max:1000'],
         ];

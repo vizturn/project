@@ -13,6 +13,7 @@ export default function HazardForm({ permit, awal, judul, labelTombol, onSubmit,
   const [loading, setLoading] = useState(true);
   const [checked, setChecked] = useState({}); // { [permitTypeId]: { [noBahaya]: true } }
   const [nomorJsa, setNomorJsa] = useState(awal?.nomor_jsa ?? "");
+  const [jsaFile, setJsaFile] = useState(null);
   const [risiko, setRisiko] = useState(awal?.tingkat_risiko ?? "");
   const [lainnya, setLainnya] = useState(awal?.bahaya_lainnya ?? "");
 
@@ -56,6 +57,7 @@ export default function HazardForm({ permit, awal, judul, labelTombol, onSubmit,
     onSubmit({
       hazards,
       nomor_jsa: nomorJsa || null,
+      jsa_file: jsaFile,
       tingkat_risiko: risiko,
       bahaya_lainnya: lainnya || null,
     });
@@ -125,6 +127,16 @@ export default function HazardForm({ permit, awal, judul, labelTombol, onSubmit,
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
             placeholder="Opsional"
           />
+          <label className="block text-sm text-slate-600 mb-1 mt-3">File JSA (PDF/JPG/PNG)</label>
+          <input
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png"
+            onChange={(e) => setJsaFile(e.target.files?.[0] ?? null)}
+            className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand"
+          />
+          {awal?.jsa_file_path && !jsaFile && (
+            <p className="text-xs text-slate-400 mt-1">File tersimpan — unggah file baru untuk mengganti.</p>
+          )}
         </div>
         <div>
           <label className="block text-sm text-slate-600 mb-1">Tingkat risiko (berdasarkan JSA) *</label>
