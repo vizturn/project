@@ -17,6 +17,7 @@ const MENU = [
   { to: "/audit-logs",    label: "Audit Log",    icon: ScrollText, roles: ["SHE", "ADM"] },
   { to: "/reports",       label: "Laporan",      icon: BarChart3,  roles: ["SHE", "ADM"] },
   { to: "/accounts/approval", label: "Persetujuan Akun", icon: UserCheck, roles: ["SHE"] },
+  { to: "/accounts/manage", label: "Kelola Akun", icon: UserCircle2, roles: ["ADM"] },
 ];
 
 export default function Sidebar() {

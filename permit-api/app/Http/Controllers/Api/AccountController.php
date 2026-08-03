@@ -95,6 +95,22 @@ class AccountController extends Controller
     }
 
     /**
+     * ADM (ICT) mengaktifkan kembali akun yang sebelumnya dinonaktifkan.
+     * Role lama dipertahankan (tidak perlu ditetapkan ulang).
+     */
+    public function reactivate(Request $request, User $user)
+    {
+        if ($user->status_aktif) {
+            return response()->json(['message' => 'Akun sudah aktif.'], 422);
+        }
+
+        $user->update(['status_aktif' => true]);
+        $this->catatAudit($request->user(), 'reactivate_account', $user->id);
+
+        return response()->json(['message' => "Akun {$user->name} diaktifkan kembali."]);
+    }
+
+    /**
      * ADM (ICT) menonaktifkan akun (data tetap tersimpan untuk audit).
      */
     public function deactivate(Request $request, User $user)

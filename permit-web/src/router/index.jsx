@@ -17,6 +17,7 @@ import AuditLogPage from "../pages/AuditLogPage";
 import ReportPage from "../pages/ReportPage";
 import ProfilePage from "../pages/ProfilePage";
 import AccountApprovalPage from "../pages/AccountApprovalPage";
+import AccountManagePage from "../pages/AccountManagePage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -66,6 +67,14 @@ export const router = createBrowserRouter([
             element: <RoleRoute allow={["SHE"]} />,
             children: [
               { path: "/accounts/approval", element: <AccountApprovalPage /> },
+            ],
+          },
+
+          // Kelola akun (nonaktif/hapus): hanya ADM (ICT)
+          {
+            element: <RoleRoute allow={["ADM"]} />,
+            children: [
+              { path: "/accounts/manage", element: <AccountManagePage /> },
             ],
           },
         ],

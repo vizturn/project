@@ -75,6 +75,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     });
     Route::middleware('role:ADM')->group(function () {
         Route::post('/accounts/{user}/deactivate', [AccountController::class, 'deactivate']);
+        Route::post('/accounts/{user}/reactivate', [AccountController::class, 'reactivate']);
         Route::delete('/accounts/{user}', [AccountController::class, 'destroy']);
     });
 

@@ -16,6 +16,10 @@ export const rejectAccount = (userId) =>
 export const deactivateAccount = (userId) =>
   api.post(`/accounts/${userId}/deactivate`);
 
+// ADM (ICT): aktifkan kembali akun yang dinonaktifkan (role lama dipertahankan).
+export const reactivateAccount = (userId) =>
+  api.post(`/accounts/${userId}/reactivate`);
+
 // ADM (ICT): hapus permanen (ditolak backend bila punya izin terkait).
 export const deleteAccount = (userId) =>
   api.delete(`/accounts/${userId}`);
