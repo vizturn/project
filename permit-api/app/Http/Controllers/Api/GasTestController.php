@@ -46,6 +46,7 @@ class GasTestController extends Controller
         $gasTest = GasTest::create([
             'permit_id'      => $permit->id,
             'agt_id'         => $user->id,
+            'fase'           => $data['fase'] ?? null,
             'tanggal'        => now()->toDateString(),
             'jam'            => now()->format('H:i:s'),
             'lel_persen'     => $lel,

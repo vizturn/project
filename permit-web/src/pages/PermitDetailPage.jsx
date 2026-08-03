@@ -17,6 +17,7 @@ import WahAccessLogForm from "../components/WahAccessLogForm";
 import CseIsolationForm from "../components/CseIsolationForm";
 import CsePreparationForm from "../components/CsePreparationForm";
 import CseAccessLogForm from "../components/CseAccessLogForm";
+import PsbFilesSection from "../components/PsbFilesSection";
 import { submitHazards, reviewHazards } from "../services/hazardService";
 import { toast } from "sonner";
 import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine } from "lucide-react";
@@ -281,6 +282,17 @@ export default function PermitDetailPage() {
           </dl>
         </div>
 
+        {/* File PSB — diunggah AA saat menyetujui izin (wajib min. 1 sebelum approve) */}
+        <PsbFilesSection
+          permitId={id}
+          files={permit.psb_files || []}
+          bisaUnggah={
+            permit.status === "menunggu_approval" && hasRole("AA") &&
+            (permit.approval_authority_id === null || permit.approval_authority?.id === user?.id)
+          }
+          onChanged={load}
+        />
+
         {/* PSB yang ditetapkan */}
         {permit.psb_forms?.length > 0 && (
           <div className="bg-white rounded-xl shadow p-6">
@@ -363,7 +375,7 @@ export default function PermitDetailPage() {
               </div>
               <div>
                 <span className="font-medium">Petugas Jaga:</span>{" "}
-                {permit.cse_petugas_jaga?.name || "-"}
+                {permit.cse_petugas_jaga_nama || "-"}
               </div>
               <div>
                 <span className="font-medium">Peralatan Komunikasi:</span>{" "}
@@ -604,12 +616,13 @@ export default function PermitDetailPage() {
             <h2 className="font-semibold text-slate-800 mb-2">Riwayat Uji Gas</h2>
             <table className="w-full text-sm">
               <thead><tr className="text-left text-slate-500 border-b border-slate-200">
-                <th className="py-1">Waktu</th><th>O₂%</th><th>LEL%</th><th>CO</th><th>H₂S</th><th>Hasil</th><th>AGT</th>
+                <th className="py-1">Waktu</th><th>Fase</th><th>O₂%</th><th>LEL%</th><th>CO</th><th>H₂S</th><th>Petugas</th>
               </tr></thead>
               <tbody>
                 {permit.gas_tests.map((g) => (
                   <tr key={g.id} className="border-b border-slate-100">
                     <td className="py-1">{g.tanggal} {g.jam}</td>
+                    <td>{g.fase ? g.fase.charAt(0).toUpperCase() + g.fase.slice(1) : "-"}</td>
                     <td>{g.oksigen_persen}</td><td>{g.lel_persen}</td><td>{g.co_ppm ?? "-"}</td><td>{g.h2s_ppm ?? "-"}</td>
                     <td>{g.agt?.name ?? "-"}</td>
                   </tr>
@@ -701,17 +714,19 @@ export default function PermitDetailPage() {
           yang relevan terisi (lihat PermitService::bagian3Selesai).
         */}
 
-        {/* Bagian 3 (khusus CSE), langkah 1: IA menentukan kebutuhan Isolasi Energi ruang terbatas */}
-        {["disetujui", "menunggu_persiapan_pa"].includes(S) && hasRole("IA") && isCSE && !permit.cse_isolasi_diisi_at && (
+        {/* Bagian 3 (khusus CSE): PA mengisi Persiapan (petugas jaga, peralatan, JSA)
+            setelah izin disetujui — bersamaan dengan identifikasi bahaya bila gabungan. */}
+        {["disetujui", "menunggu_persiapan_pa"].includes(S) && isOwnerPA && isCSE && !permit.cse_persiapan_diisi_at && (
           <div className="bg-white rounded-xl shadow p-6">
-            <CseIsolationForm busy={busy} onSubmit={doCseIsolation} />
+            <CsePreparationForm busy={busy} onSubmit={doCsePreparation} />
           </div>
         )}
 
-        {/* Bagian 3 (khusus CSE), langkah 2: PA menetapkan Petugas Jaga & peralatan */}
-        {S === "menunggu_persiapan_pa" && isOwnerPA && isCSE && !permit.cse_persiapan_diisi_at && (
+        {/* Isolasi Energi CSE (opsional): IA menentukan kebutuhan & sertifikat pada
+            tahap menunggu_penerbitan, sebelum menerbitkan izin. */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && isCSE && !permit.cse_isolasi_diisi_at && (
           <div className="bg-white rounded-xl shadow p-6">
-            <CsePreparationForm busy={busy} onSubmit={doCsePreparation} />
+            <CseIsolationForm busy={busy} onSubmit={doCseIsolation} />
           </div>
         )}
 
@@ -798,12 +813,24 @@ export default function PermitDetailPage() {
           </div>
         )}
 
-        {/* STEP 27 — Hasil uji gas: boleh diisi IA maupun AGT — hanya HWP/CWP */}
+        {/* Uji gas HWP/CWP saat menunggu penerbitan (tanpa fase) */}
         {S === "menunggu_penerbitan" && (hasRole("IA") || hasRole("AGT")) && butuhReferensi && (
           <div className="bg-white rounded-xl shadow p-6">
             <GasResultForm
               busy={busy}
               onSubmit={(payload) => run(() => addGasTest(id, payload), "Hasil uji gas tersimpan.")}
+            />
+          </div>
+        )}
+
+        {/* CSE — Pengujian Kadar Gas AWAL (wajib sebelum penerbitan), oleh IA */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && isCSE && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="font-semibold text-slate-800 mb-1">Pengujian Kadar Gas — Awal (Bagian 4)</h2>
+            <p className="text-sm text-slate-500 mb-3">Wajib diisi sebelum menerbitkan izin. Pengujian lanjutan diisi saat izin aktif.</p>
+            <GasResultForm
+              busy={busy}
+              onSubmit={(payload) => run(() => addGasTest(id, { ...payload, fase: "awal" }), "Pengujian gas awal tersimpan.")}
             />
           </div>
         )}
@@ -889,8 +916,20 @@ export default function PermitDetailPage() {
           </div>
         )}
 
+        {/* CSE — Pengujian Kadar Gas LANJUTAN (saat izin aktif), oleh IA, bisa berkali-kali */}
+        {S === "aktif" && isCSE && hasRole("IA") && (
+          <div className="bg-white rounded-xl shadow p-6">
+            <h2 className="font-semibold text-slate-800 mb-1">Pengujian Kadar Gas — Lanjutan (Bagian 4)</h2>
+            <p className="text-sm text-slate-500 mb-3">Pengujian ulang selama pekerjaan berlangsung. Waktu dicatat otomatis; tambah setiap kali melakukan pengujian.</p>
+            <GasResultForm
+              busy={busy}
+              onSubmit={(payload) => run(() => addGasTest(id, { ...payload, fase: "lanjutan" }), "Pengujian gas lanjutan tersimpan.")}
+            />
+          </div>
+        )}
+
         {/* Bagian 7 (khusus CSE): Petugas Jaga / PA catat keluar-masuk ruang terbatas (saat aktif) */}
-        {S === "aktif" && isCSE && (isOwnerPA || Number(user?.id) === Number(permit.cse_petugas_jaga_id)) && (
+        {S === "aktif" && isCSE && isOwnerPA && (
           <div className="bg-white rounded-xl shadow p-6">
             <CseAccessLogForm busy={busy} onSubmit={doCseAccessLog} />
           </div>

@@ -18,6 +18,7 @@ class StoreGasTestRequest extends FormRequest
             'lel_persen'     => ['required', 'numeric', 'min:0'],
             'co_ppm'         => ['nullable', 'numeric', 'min:0'],
             'h2s_ppm'        => ['nullable', 'numeric', 'min:0'],
+            'fase'           => ['nullable', 'in:awal,lanjutan'],
         ];
     }
 }

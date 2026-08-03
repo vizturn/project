@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Button from "./Button";
 import { toast } from "sonner";
 import { HardHat, Wrench, UserCheck } from "lucide-react";
-import { getUsersByRole } from "../services/userService";
 
 /**
  * Bagian 3 — Persiapan (bagian PA, khusus CSE).
@@ -21,30 +20,21 @@ const PERALATAN = [
 ];
 
 export default function CsePreparationForm({ onSubmit, busy }) {
-  const [pjList, setPjList] = useState([]);
-  const [petugasJagaId, setPetugasJagaId] = useState("");
+  const [petugasJagaNama, setPetugasJagaNama] = useState("");
   const [alatKomunikasi, setAlatKomunikasi] = useState("");
   const [nomorJsa, setNomorJsa] = useState("");
   const [jsaFile, setJsaFile] = useState(null);
   const [peralatan, setPeralatan] = useState({});
   const [peralatanLainnya, setPeralatanLainnya] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getUsersByRole("PJ")
-      .then((r) => setPjList(r.data.data))
-      .catch(() => toast.error("Gagal memuat daftar Petugas Jaga."))
-      .finally(() => setLoading(false));
-  }, []);
 
   const kirim = () => {
-    if (!petugasJagaId) {
-      toast.error("Petugas Jaga wajib ditetapkan.");
+    if (!petugasJagaNama.trim()) {
+      toast.error("Nama Petugas Jaga wajib diisi.");
       return;
     }
 
     onSubmit({
-      cse_petugas_jaga_id: Number(petugasJagaId),
+      cse_petugas_jaga_nama: petugasJagaNama.trim(),
       cse_alat_komunikasi: alatKomunikasi.trim() || null,
       nomor_jsa: nomorJsa.trim() || null,
       jsa_file: jsaFile,
@@ -64,29 +54,18 @@ export default function CsePreparationForm({ onSubmit, busy }) {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <UserCheck className="text-orange-600" size={16} />
-          <label className="text-sm font-semibold text-slate-700">Petugas Jaga *</label>
+          <label className="text-sm font-semibold text-slate-700">Nama Petugas Jaga *</label>
         </div>
         <p className="text-xs text-slate-500 mb-2">
           Petugas jaga di luar ruang terbatas yang mencatat personel masuk dan menghitung waktu di dalam.
         </p>
-        <select
-          value={petugasJagaId}
-          onChange={(e) => setPetugasJagaId(e.target.value)}
-          disabled={loading}
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm disabled:opacity-50"
-        >
-          <option value="">{loading ? "Memuat..." : "— Pilih Petugas Jaga —"}</option>
-          {pjList.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name}{u.jabatan ? ` — ${u.jabatan}` : ""}
-            </option>
-          ))}
-        </select>
-        {!loading && pjList.length === 0 && (
-          <p className="text-xs text-red-600 mt-1">
-            Belum ada pengguna dengan peran PJ. Hubungi Administrator.
-          </p>
-        )}
+        <input
+          value={petugasJagaNama}
+          onChange={(e) => setPetugasJagaNama(e.target.value)}
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+          placeholder="Tulis nama petugas jaga"
+          maxLength={150}
+        />
       </div>
 
       <div>
@@ -149,7 +128,7 @@ export default function CsePreparationForm({ onSubmit, busy }) {
         </div>
       </div>
 
-      <Button onClick={kirim} busy={busy} disabled={loading}>
+      <Button onClick={kirim} busy={busy}>
         Simpan Persiapan &amp; Kirim ke IA
       </Button>
     </div>

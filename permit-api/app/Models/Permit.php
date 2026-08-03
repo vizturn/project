@@ -39,6 +39,7 @@ class Permit extends Model
         'cse_isolasi_cert_file_path',
         'cse_isolasi_diisi_at',
         'cse_petugas_jaga_id',
+        'cse_petugas_jaga_nama',
         'cse_alat_komunikasi',
         'cse_peralatan',
         'cse_peralatan_lainnya',
@@ -168,6 +169,11 @@ class Permit extends Model
     public function psbForms(): HasMany
     {
         return $this->hasMany(PsbForm::class);
+    }
+
+    public function psbFiles(): HasMany
+    {
+        return $this->hasMany(PsbFile::class);
     }
 
     public function jsaReferences(): HasMany

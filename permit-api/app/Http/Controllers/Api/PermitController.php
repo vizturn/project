@@ -72,6 +72,7 @@ class PermitController extends Controller
             'approvalAuthority:id,name',
             'issuingAuthority:id,name',
             'psbForms.psbType',
+            'psbFiles.diuploadOleh:id,name',
             'personnel',
             'hazards.permitType:id,kode,nama',
             'psbForms.permitType:id,kode,nama',
@@ -224,6 +225,13 @@ class PermitController extends Controller
             return response()->json(['message' => 'Izin ini ditujukan kepada Approval Authority lain.'], 403);
         }
 
+        // Wajib: AA mengunggah minimal 1 file PSB sebelum menyetujui izin.
+        if ($permit->psbFiles()->count() < 1) {
+            return response()->json([
+                'message' => 'Wajib mengunggah minimal 1 file PSB sebelum menyetujui izin.',
+            ], 422);
+        }
+
         $data = $request->validated();
 
         DB::transaction(function () use ($permit, $user, $data) {
@@ -333,9 +341,14 @@ class PermitController extends Controller
             ], 422);
         }
 
-        // STEP 28 — Uji gas TIDAK lagi memblokir penerbitan.
-        // Hasil pengukuran hanya dicatat; penilaian kondisi aman adalah wewenang IA
-        // (pernyataan Bagian 6). Uji gas sepenuhnya opsional.
+        // Izin CSE: uji gas AWAL wajib diisi sebelum penerbitan (pengujian
+        // lanjutan menyusul saat izin aktif).
+        if ($this->service->isCse($permit)
+            && ! $permit->gasTests()->where('fase', 'awal')->exists()) {
+            return response()->json([
+                'message' => 'Pengujian kadar gas AWAL wajib diisi sebelum penerbitan izin CSE.',
+            ], 422);
+        }
 
         $data = $request->validated();
 

@@ -18,7 +18,6 @@ class ReportController extends Controller
      *   PA  -> performing_authority_id
      *   AA  -> approval_authority_id
      *   IA  -> issuing_authority_id
-     *   PJ  -> cse_petugas_jaga_id (khusus izin CSE)
      *
      * Bentuk respons: { "PA": {total, by_status}, "IA": {...}, ... }
      * Hanya peran yang dimiliki pengguna yang disertakan.
@@ -28,11 +27,12 @@ class ReportController extends Controller
         $user = $request->user();
 
         // Peta peran -> kolom filter di tabel permits.
+        // Catatan: Petugas Jaga (PJ) tidak lagi punya statistik personal karena
+        // kini dicatat sebagai nama bebas, bukan akun pengguna.
         $petaPeran = [
             'PA' => 'performing_authority_id',
             'AA' => 'approval_authority_id',
             'IA' => 'issuing_authority_id',
-            'PJ' => 'cse_petugas_jaga_id',
         ];
 
         $hasil = [];

@@ -37,12 +37,12 @@ class CseAccessLogController extends Controller
             return response()->json(['message' => 'Endpoint ini khusus izin CSE (Confined Space Entry).'], 422);
         }
 
-        // Yang boleh mencatat: Petugas Jaga yang ditetapkan, atau PA pemilik.
-        $bolehCatat = (int) $permit->cse_petugas_jaga_id === (int) $user->id
-            || (int) $permit->performing_authority_id === (int) $user->id;
+        // Petugas Jaga kini dicatat sebagai nama bebas (tanpa akun), sehingga
+        // pencatatan keluar-masuk dilakukan oleh PA pemilik izin.
+        $bolehCatat = (int) $permit->performing_authority_id === (int) $user->id;
 
         if (! $bolehCatat) {
-            return response()->json(['message' => 'Hanya Petugas Jaga yang ditetapkan atau PA pemilik yang dapat mencatat keluar-masuk.'], 403);
+            return response()->json(['message' => 'Hanya PA pemilik yang dapat mencatat keluar-masuk.'], 403);
         }
 
         if ($permit->status !== 'aktif') {

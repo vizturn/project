@@ -10,11 +10,15 @@ use App\Services\PermitService;
 
 /**
  * Bagian 3 — Persiapan (bagian PA, khusus CSE).
- * PA menetapkan Petugas Jaga (user ber-role PJ) yang akan mencatat keluar-masuk
- * personel, peralatan komunikasi, serta peralatan khusus ruang terbatas.
+ * PA mencatat nama Petugas Jaga (teks bebas), peralatan komunikasi, peralatan
+ * khusus ruang terbatas, nomor & file JSA.
  *
- * Izin GABUNGAN: status baru maju ke menunggu_penerbitan setelah SELURUH
- * Bagian 3 dari SEMUA jenis izin lengkap. Urutan bebas.
+ * Alur: PA mengisi persiapan langsung setelah izin DISETUJUI (bersamaan dengan
+ * identifikasi bahaya bila izin gabungan). Isolasi Energi CSE ditentukan IA
+ * kemudian pada tahap menunggu_penerbitan (opsional), bukan prasyarat.
+ *
+ * Izin GABUNGAN: status maju ke menunggu_penerbitan hanya setelah SELURUH
+ * Bagian 3 dari semua jenis izin lengkap.
  */
 class CsePreparationController extends Controller
 {
@@ -34,11 +38,14 @@ class CsePreparationController extends Controller
         if ((int) $permit->performing_authority_id !== (int) $user->id) {
             return response()->json(['message' => 'Hanya PA pemilik yang dapat mengisi Persiapan.'], 403);
         }
-        if ($permit->status !== 'menunggu_persiapan_pa') {
-            return response()->json(['message' => 'Persiapan PA hanya dapat diisi setelah IA menentukan kebutuhan Isolasi Energi.'], 422);
+        // PA mengisi persiapan pada tahap disetujui (atau saat masih melengkapi
+        // bagian lain pada izin gabungan).
+        if (! in_array($permit->status, ['disetujui', 'menunggu_persiapan_pa'], true)) {
+            return response()->json(['message' => 'Persiapan hanya dapat diisi setelah izin disetujui.'], 422);
         }
 
         $data = $request->validated();
+        $statusLama = $permit->status;
 
         $jsaPath = $permit->jsa_file_path;
         if ($request->hasFile('jsa_file')) {
@@ -46,7 +53,7 @@ class CsePreparationController extends Controller
         }
 
         $permit->update([
-            'cse_petugas_jaga_id'    => $data['cse_petugas_jaga_id'],
+            'cse_petugas_jaga_nama'  => $data['cse_petugas_jaga_nama'],
             'cse_alat_komunikasi'    => $data['cse_alat_komunikasi'] ?? null,
             'nomor_jsa'              => $data['nomor_jsa'] ?? null,
             'jsa_file_path'          => $jsaPath,
@@ -64,11 +71,11 @@ class CsePreparationController extends Controller
 
         $this->service->recordTransition(
             $permit,
-            'menunggu_persiapan_pa',
-            $lanjut ? 'menunggu_penerbitan' : 'menunggu_persiapan_pa',
+            $statusLama,
+            $lanjut ? 'menunggu_penerbitan' : $statusLama,
             $user,
             'store_cse_preparation',
-            ['cse_petugas_jaga_id' => $data['cse_petugas_jaga_id']]
+            ['cse_petugas_jaga_nama' => $data['cse_petugas_jaga_nama']]
         );
 
         if ($lanjut) {
@@ -80,19 +87,11 @@ class CsePreparationController extends Controller
             );
         }
 
-        // Petugas Jaga diberi tahu bahwa ia ditugaskan pada izin ini.
-        $this->notif(
-            $data['cse_petugas_jaga_id'],
-            $permit->id,
-            "Anda ditetapkan sebagai Petugas Jaga pada izin {$permit->nomor_izin} (CSE).",
-            kirimEmail: true
-        );
-
         return response()->json([
             'message' => $lanjut
                 ? 'Persiapan CSE tersimpan. Menunggu Penerbitan.'
                 : 'Persiapan CSE tersimpan. Lengkapi bagian jenis izin lainnya sebelum dapat diterbitkan.',
-            'data'    => $permit->load('csePetugasJaga:id,name,jabatan'),
+            'data'    => $permit->fresh(),
         ]);
     }
 }

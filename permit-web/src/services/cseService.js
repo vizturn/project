@@ -6,10 +6,10 @@ export const storeCseIsolation = (id, formData) =>
   api.post(`/permits/${id}/cse-isolation`, formData);
 
 // Bagian 3 (Persiapan, khusus CSE) — PA menetapkan Petugas Jaga & peralatan khusus.
-// payload: { cse_petugas_jaga_id, cse_alat_komunikasi?, peralatan[], peralatan_lainnya? }
+// payload: { cse_petugas_jaga_nama, cse_alat_komunikasi?, nomor_jsa?, jsa_file?, peralatan[], peralatan_lainnya? }
 export const storeCsePreparation = (id, payload) => {
   const fd = new FormData();
-  fd.append("cse_petugas_jaga_id", payload.cse_petugas_jaga_id);
+  fd.append("cse_petugas_jaga_nama", payload.cse_petugas_jaga_nama);
   if (payload.cse_alat_komunikasi) fd.append("cse_alat_komunikasi", payload.cse_alat_komunikasi);
   if (payload.nomor_jsa) fd.append("nomor_jsa", payload.nomor_jsa);
   if (payload.jsa_file) fd.append("jsa_file", payload.jsa_file);

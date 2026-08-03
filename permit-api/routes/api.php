@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CseAccessLogController;
+use App\Http\Controllers\Api\PsbFileController;
 use App\Http\Controllers\Api\CseIsolationController;
 use App\Http\Controllers\Api\CsePreparationController;
 use App\Http\Controllers\Api\GasTestController;
@@ -61,6 +62,11 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 
     // STEP 26 — master daftar bahaya (Bagian 3), dikelompokkan per jenis izin
     Route::get('/permits/{permit}/hazard-options', [HazardController::class, 'options']);
+
+    // File PSB — PA (saat draft) & AA (saat menunggu_approval). Otorisasi rinci
+    // (peran + status + kepemilikan) ditangani di PsbFileController.
+    Route::post('/permits/{permit}/psb-files', [PsbFileController::class, 'store']);
+    Route::delete('/permits/{permit}/psb-files/{psbFile}', [PsbFileController::class, 'destroy']);
 
     Route::middleware('role:PA')->group(function () {
         Route::post('/permits', [PermitController::class, 'store']);

@@ -13,6 +13,7 @@ class GasTest extends Model
     protected $fillable = [
         'permit_id',
         'agt_id',
+        'fase',
         'tanggal',
         'jam',
         'lel_persen',
