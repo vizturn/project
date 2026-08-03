@@ -113,10 +113,10 @@ export default function LoginPage() {
             Belum punya akun?{" "}
             <button
               type="button"
-              onClick={() => toast.info("Fitur permintaan akun akan segera tersedia.")}
+              onClick={() => navigate("/register")}
               className="text-brand font-medium hover:underline"
             >
-              Ajukan pembuatan akun
+              Daftar akun baru
             </button>
           </p>
         </div>

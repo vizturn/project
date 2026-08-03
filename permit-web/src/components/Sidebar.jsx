@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard, ClipboardList, FileText, KanbanSquare,
-  Bell, ScrollText, BarChart3, ShieldCheck, LogOut, UserCircle2,
+  Bell, ScrollText, BarChart3, ShieldCheck, LogOut, UserCircle2, UserCheck,
 } from "lucide-react";
 
 // Definisi menu. `roles` kosong/undefined = tampil untuk semua peran.
@@ -16,6 +16,7 @@ const MENU = [
   { to: "/notifications", label: "Notifikasi",   icon: Bell },
   { to: "/audit-logs",    label: "Audit Log",    icon: ScrollText, roles: ["SHE", "ADM"] },
   { to: "/reports",       label: "Laporan",      icon: BarChart3,  roles: ["SHE", "ADM"] },
+  { to: "/accounts/approval", label: "Persetujuan Akun", icon: UserCheck, roles: ["SHE"] },
 ];
 
 export default function Sidebar() {

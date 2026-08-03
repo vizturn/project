@@ -6,4 +6,7 @@ export const loginRequest = (email, password) =>
 
 export const logoutRequest = () => api.post("/logout");
 
+// Pendaftaran akun mandiri. payload: {name,email,password,password_confirmation,role_diminta,jabatan,divisi,perusahaan}
+export const registerRequest = (payload) => api.post("/register", payload);
+
 export const meRequest = () => api.get("/me");

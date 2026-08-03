@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CseAccessLogController;
+use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\PsbFileController;
 use App\Http\Controllers\Api\CseIsolationController;
 use App\Http\Controllers\Api\CsePreparationController;
@@ -28,6 +29,7 @@ Route::get('/ping', function () {
 
 // Auth publik
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
 
 Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -63,7 +65,19 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // STEP 26 — master daftar bahaya (Bagian 3), dikelompokkan per jenis izin
     Route::get('/permits/{permit}/hazard-options', [HazardController::class, 'options']);
 
-    // File PSB — PA (saat draft) & AA (saat menunggu_approval). Otorisasi rinci
+    // Manajemen akun — SHE mengaktifkan & set role; ADM (ICT) nonaktif & hapus.
+    Route::middleware('role:SHE,ADM')->group(function () {
+        Route::get('/accounts', [AccountController::class, 'index']);
+    });
+    Route::middleware('role:SHE')->group(function () {
+        Route::post('/accounts/{user}/activate', [AccountController::class, 'activate']);
+        Route::post('/accounts/{user}/reject', [AccountController::class, 'reject']);
+    });
+    Route::middleware('role:ADM')->group(function () {
+        Route::post('/accounts/{user}/deactivate', [AccountController::class, 'deactivate']);
+        Route::delete('/accounts/{user}', [AccountController::class, 'destroy']);
+    });
+
     // (peran + status + kepemilikan) ditangani di PsbFileController.
     Route::post('/permits/{permit}/psb-files', [PsbFileController::class, 'store']);
     Route::delete('/permits/{permit}/psb-files/{psbFile}', [PsbFileController::class, 'destroy']);

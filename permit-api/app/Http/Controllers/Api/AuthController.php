@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
 use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -11,6 +12,33 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    /**
+     * Pendaftaran akun mandiri. Akun dibuat non-aktif (status_aktif = false)
+     * dan menyimpan role_diminta; Departemen SHE yang mengaktifkan &
+     * menetapkan role definitif. Belum bisa login sampai diaktifkan.
+     */
+    public function register(RegisterRequest $request)
+    {
+        $data = $request->validated();
+
+        $user = User::create([
+            'name'         => $data['name'],
+            'email'        => $data['email'],
+            'password'     => Hash::make($data['password']),
+            'jabatan'      => $data['jabatan'] ?? null,
+            'divisi'       => $data['divisi'] ?? null,
+            'perusahaan'   => $data['perusahaan'] ?? null,
+            'role_diminta' => $data['role_diminta'],
+            'status_aktif' => false,
+        ]);
+
+        $this->catatAudit($user, 'register');
+
+        return response()->json([
+            'message' => 'Pendaftaran berhasil. Akun Anda menunggu persetujuan Departemen SHE sebelum dapat digunakan.',
+        ], 201);
+    }
+
     /**
      * Login dan terbitkan Bearer token (Sanctum personal access token).
      * Sesuai diagram arsitektur: Auth Context (frontend) menyimpan token ini

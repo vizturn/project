@@ -22,6 +22,9 @@ class User extends Authenticatable
         'password',
         'sso_ref',
         'jabatan',
+        'divisi',
+        'perusahaan',
+        'role_diminta',
         'status_aktif',
     ];
 

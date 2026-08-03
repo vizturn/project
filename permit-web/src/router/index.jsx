@@ -3,6 +3,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
 import AppLayout from "../components/AppLayout";
 import LoginPage from "../pages/LoginPage";
+import RegisterPage from "../pages/RegisterPage";
 import DashboardPage from "../pages/DashboardPage";
 import UnauthorizedPage from "../pages/UnauthorizedPage";
 import ScreeningListPage from "../pages/ScreeningListPage";
@@ -15,9 +16,11 @@ import NotificationsPage from "../pages/NotificationsPage";
 import AuditLogPage from "../pages/AuditLogPage";
 import ReportPage from "../pages/ReportPage";
 import ProfilePage from "../pages/ProfilePage";
+import AccountApprovalPage from "../pages/AccountApprovalPage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
+  { path: "/register", element: <RegisterPage /> },
   { path: "/unauthorized", element: <UnauthorizedPage /> },
   {
     element: <ProtectedRoute />,
@@ -55,6 +58,14 @@ export const router = createBrowserRouter([
             children: [
               { path: "/audit-logs", element: <AuditLogPage /> },
               { path: "/reports", element: <ReportPage /> },
+            ],
+          },
+
+          // Persetujuan akun: hanya SHE
+          {
+            element: <RoleRoute allow={["SHE"]} />,
+            children: [
+              { path: "/accounts/approval", element: <AccountApprovalPage /> },
             ],
           },
         ],
