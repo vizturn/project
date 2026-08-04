@@ -23,8 +23,21 @@ export const closePermit = (id) => api.post(`/permits/${id}/close`);
 export const addLiveAudit = (id, catatan) => api.post(`/permits/${id}/live-audits`, { catatan });
 
 // STEP 27 — Bagian 4: Referensi Pendukung (IA)
-export const storeReferences = (id, payload) =>
-  api.post(`/permits/${id}/references`, payload);
+export const storeReferences = (id, payload) => {
+  const fd = new FormData();
+  // Field teks (lewati null & objek file).
+  const teksKeys = [
+    "ref_permit_cse", "ref_permit_wah", "cert_isolation",
+    "cert_scaffolding", "cert_excavation",
+    "sistem_safety_dinonaktifkan", "referensi_lainnya",
+  ];
+  teksKeys.forEach((k) => {
+    if (payload[k] != null) fd.append(k, payload[k]);
+  });
+  fd.append("cert_isolation_diperlukan", payload.cert_isolation_diperlukan ? 1 : 0);
+  if (payload.cert_isolation_file) fd.append("cert_isolation_file", payload.cert_isolation_file);
+  return api.post(`/permits/${id}/references`, fd);
+};
 
 // STEP 27 — Bagian 5: IA menetapkan pengujian gas yang wajib
 export const storeGasRequirement = (id, payload) =>

@@ -25,6 +25,29 @@ class IssuancePrepController extends Controller
         }
 
         $data = $request->validated();
+
+        // Sertifikat isolasi: bila diperlukan, file wajib (kecuali sudah ada
+        // file lama dari penyimpanan sebelumnya).
+        $diperlukan = $request->boolean('cert_isolation_diperlukan');
+        $filePathLama = $permit->cert_isolation_file_path;
+
+        if ($diperlukan && ! $request->hasFile('cert_isolation_file') && ! $filePathLama) {
+            return response()->json([
+                'message' => 'File Sertifikat Isolasi wajib diunggah bila sertifikat isolasi diperlukan.',
+            ], 422);
+        }
+
+        // Simpan file bila ada unggahan baru; jika tidak diperlukan, kosongkan.
+        $filePath = $filePathLama;
+        if ($request->hasFile('cert_isolation_file')) {
+            $filePath = $request->file('cert_isolation_file')->store('sertifikat/isolasi/' . $permit->id, 'public');
+        }
+
+        // Buang key file dari data (bukan kolom DB) & set field turunan.
+        unset($data['cert_isolation_file']);
+        $data['cert_isolation_diperlukan'] = $diperlukan;
+        $data['cert_isolation']            = $diperlukan ? ($data['cert_isolation'] ?? null) : null;
+        $data['cert_isolation_file_path']  = $diperlukan ? $filePath : null;
         $data['referensi_diisi_at'] = now();
 
         $permit->update($data);
@@ -34,7 +57,7 @@ class IssuancePrepController extends Controller
             'aksi'       => 'store_references',
             'entitas'    => 'permits',
             'entitas_id' => $permit->id,
-            'data_baru'  => $request->validated(),
+            'data_baru'  => $data,
             'logged_at'  => now(),
         ]);
 

@@ -56,6 +56,8 @@ class Permit extends Model
         'ref_permit_cse',
         'ref_permit_wah',
         'cert_isolation',
+        'cert_isolation_diperlukan',
+        'cert_isolation_file_path',
         'cert_scaffolding',
         'cert_excavation',
         'sistem_safety_dinonaktifkan',
@@ -95,6 +97,7 @@ class Permit extends Model
             'wah_peralatan'            => 'array',
             'wah_isolasi_diperlukan'   => 'boolean',
             'wah_isolasi_diisi_at'     => 'datetime',
+            'cert_isolation_diperlukan' => 'boolean',
         ];
     }
 

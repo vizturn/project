@@ -574,7 +574,18 @@ export default function PermitDetailPage() {
                 <dl className="text-sm text-slate-600 grid grid-cols-1 sm:grid-cols-2 gap-1">
                   <div><span className="font-medium">CSE:</span> {permit.ref_permit_cse || "-"}</div>
                   <div><span className="font-medium">Bekerja di Ketinggian:</span> {permit.ref_permit_wah || "-"}</div>
-                  <div><span className="font-medium">Isolation:</span> {permit.cert_isolation || "-"}</div>
+                  <div className="sm:col-span-2">
+                    <span className="font-medium">Sertifikat Isolasi:</span>{" "}
+                    {permit.cert_isolation_diperlukan ? (
+                      <>
+                        Diperlukan — {permit.cert_isolation || "-"}
+                        {permit.cert_isolation_file_path && (
+                          <a href={wahFileUrl(permit.cert_isolation_file_path)} target="_blank" rel="noreferrer"
+                            className="ml-2 text-blue-600 hover:underline">Lihat file</a>
+                        )}
+                      </>
+                    ) : "Tidak diperlukan"}
+                  </div>
                   <div><span className="font-medium">Scaffolding:</span> {permit.cert_scaffolding || "-"}</div>
                   <div><span className="font-medium">Excavation:</span> {permit.cert_excavation || "-"}</div>
                   {permit.sistem_safety_dinonaktifkan && (
