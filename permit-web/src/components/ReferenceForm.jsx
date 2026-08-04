@@ -2,6 +2,7 @@ import { useState } from "react";
 import Button from "./Button";
 import { FileStack } from "lucide-react";
 import { wahFileUrl } from "../services/wahService";
+import { toast } from "sonner";
 
 /**
  * Bagian 4 — Referensi Pendukung (dilengkapi oleh IA).
@@ -20,19 +21,30 @@ export default function ReferenceForm({ awal, onSubmit, busy }) {
   });
   const [isolasiPerlu, setIsolasiPerlu] = useState(!!awal?.cert_isolation_diperlukan);
   const [isolasiFile, setIsolasiFile] = useState(null);
+  const [scaffoldingPerlu, setScaffoldingPerlu] = useState(!!awal?.cert_scaffolding_diperlukan);
+  const [scaffoldingFile, setScaffoldingFile] = useState(null);
+  const [excavationPerlu, setExcavationPerlu] = useState(!!awal?.cert_excavation_diperlukan);
+  const [excavationFile, setExcavationFile] = useState(null);
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
   const kirim = () => {
-    // Validasi ringan sisi klien untuk isolasi wajib.
-    if (isolasiPerlu) {
-      if (!form.cert_isolation.trim()) {
-        alert("Nomor Sertifikat Isolasi wajib diisi bila diperlukan.");
-        return;
-      }
-      if (!isolasiFile && !awal?.cert_isolation_file_path) {
-        alert("File Sertifikat Isolasi wajib diunggah bila diperlukan.");
-        return;
+    // Validasi ringan sisi klien untuk sertifikat wajib.
+    const cek = [
+      { perlu: isolasiPerlu, nomor: form.cert_isolation, file: isolasiFile, lama: awal?.cert_isolation_file_path, label: "Isolasi" },
+      { perlu: scaffoldingPerlu, nomor: form.cert_scaffolding, file: scaffoldingFile, lama: awal?.cert_scaffolding_file_path, label: "Scaffolding" },
+      { perlu: excavationPerlu, nomor: form.cert_excavation, file: excavationFile, lama: awal?.cert_excavation_file_path, label: "Excavation" },
+    ];
+    for (const c of cek) {
+      if (c.perlu) {
+        if (!c.nomor.trim()) {
+          toast.error(`Nomor Sertifikat ${c.label} wajib diisi bila diperlukan.`);
+          return;
+        }
+        if (!c.file && !c.lama) {
+          toast.error(`File Sertifikat ${c.label} wajib diunggah bila diperlukan.`);
+          return;
+        }
       }
     }
 
@@ -40,7 +52,11 @@ export default function ReferenceForm({ awal, onSubmit, busy }) {
       Object.entries(form).map(([k, v]) => [k, v.trim() === "" ? null : v.trim()])
     );
     payload.cert_isolation_diperlukan = isolasiPerlu;
-    payload.cert_isolation_file = isolasiFile; // objek File atau null
+    payload.cert_isolation_file = isolasiFile;
+    payload.cert_scaffolding_diperlukan = scaffoldingPerlu;
+    payload.cert_scaffolding_file = scaffoldingFile;
+    payload.cert_excavation_diperlukan = excavationPerlu;
+    payload.cert_excavation_file = excavationFile;
     onSubmit(payload);
   };
 
@@ -79,58 +95,23 @@ export default function ReferenceForm({ awal, onSubmit, busy }) {
         </div>
       </div>
 
-      <div>
-        <p className="text-sm font-semibold text-slate-700 mb-2">Sertifikat Isolasi</p>
-        <div className="border border-slate-200 rounded-lg p-3 space-y-3">
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-1.5 text-sm text-slate-600">
-              <input type="radio" name="isolasiPerlu" checked={isolasiPerlu} onChange={() => setIsolasiPerlu(true)} />
-              Diperlukan
-            </label>
-            <label className="flex items-center gap-1.5 text-sm text-slate-600">
-              <input type="radio" name="isolasiPerlu" checked={!isolasiPerlu} onChange={() => setIsolasiPerlu(false)} />
-              Tidak diperlukan
-            </label>
-          </div>
-
-          {isolasiPerlu && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-slate-500 mb-1">Nomor Sertifikat Isolasi *</label>
-                <input
-                  value={form.cert_isolation}
-                  onChange={(e) => set("cert_isolation", e.target.value)}
-                  placeholder="Tulis nomor"
-                  className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-500 mb-1">File Sertifikat (PDF/JPG/PNG) *</label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => setIsolasiFile(e.target.files?.[0] ?? null)}
-                  className="w-full text-sm text-slate-600 file:mr-2 file:py-1.5 file:px-2 file:rounded file:border-0 file:bg-brand-50 file:text-brand"
-                />
-                {awal?.cert_isolation_file_path && !isolasiFile && (
-                  <p className="text-xs text-slate-400 mt-1">
-                    File tersimpan.{" "}
-                    <a href={wahFileUrl(awal.cert_isolation_file_path)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Lihat</a>
-                    {" "}— unggah baru untuk mengganti.
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div>
-        <p className="text-sm font-semibold text-slate-700 mb-2">Sertifikat Lainnya</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {input("cert_scaffolding", "Scaffolding")}
-          {input("cert_excavation", "Excavation")}
-        </div>
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-slate-700">Sertifikat Pendukung</p>
+        <SertifikatField
+          label="Isolasi" nomor={form.cert_isolation} setNomor={(v) => set("cert_isolation", v)}
+          perlu={isolasiPerlu} setPerlu={setIsolasiPerlu}
+          file={isolasiFile} setFile={setIsolasiFile} fileLama={awal?.cert_isolation_file_path}
+        />
+        <SertifikatField
+          label="Scaffolding" nomor={form.cert_scaffolding} setNomor={(v) => set("cert_scaffolding", v)}
+          perlu={scaffoldingPerlu} setPerlu={setScaffoldingPerlu}
+          file={scaffoldingFile} setFile={setScaffoldingFile} fileLama={awal?.cert_scaffolding_file_path}
+        />
+        <SertifikatField
+          label="Excavation" nomor={form.cert_excavation} setNomor={(v) => set("cert_excavation", v)}
+          perlu={excavationPerlu} setPerlu={setExcavationPerlu}
+          file={excavationFile} setFile={setExcavationFile} fileLama={awal?.cert_excavation_file_path}
+        />
       </div>
 
       <div>
@@ -160,6 +141,55 @@ export default function ReferenceForm({ awal, onSubmit, busy }) {
       <Button onClick={kirim} busy={busy}>
         {sudahDiisi ? "Perbarui Bagian 4" : "Simpan Bagian 4"}
       </Button>
+    </div>
+  );
+}
+
+// Field sertifikat kondisional: radio Diperlukan/Tidak + (bila perlu) nomor & upload file.
+function SertifikatField({ label, nomor, setNomor, perlu, setPerlu, file, setFile, fileLama }) {
+  return (
+    <div>
+      <p className="text-sm font-medium text-slate-600 mb-1.5">Sertifikat {label}</p>
+      <div className="border border-slate-200 rounded-lg p-3 space-y-3">
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-1.5 text-sm text-slate-600">
+            <input type="radio" checked={perlu} onChange={() => setPerlu(true)} /> Diperlukan
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-slate-600">
+            <input type="radio" checked={!perlu} onChange={() => setPerlu(false)} /> Tidak diperlukan
+          </label>
+        </div>
+
+        {perlu && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Nomor Sertifikat {label} *</label>
+              <input
+                value={nomor}
+                onChange={(e) => setNomor(e.target.value)}
+                placeholder="Tulis nomor"
+                className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">File Sertifikat (PDF/JPG/PNG) *</label>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="w-full text-sm text-slate-600 file:mr-2 file:py-1.5 file:px-2 file:rounded file:border-0 file:bg-brand-50 file:text-brand"
+              />
+              {fileLama && !file && (
+                <p className="text-xs text-slate-400 mt-1">
+                  File tersimpan.{" "}
+                  <a href={wahFileUrl(fileLama)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Lihat</a>
+                  {" "}— unggah baru untuk mengganti.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

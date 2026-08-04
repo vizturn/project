@@ -59,7 +59,11 @@ class Permit extends Model
         'cert_isolation_diperlukan',
         'cert_isolation_file_path',
         'cert_scaffolding',
+        'cert_scaffolding_diperlukan',
+        'cert_scaffolding_file_path',
         'cert_excavation',
+        'cert_excavation_diperlukan',
+        'cert_excavation_file_path',
         'sistem_safety_dinonaktifkan',
         'referensi_lainnya',
         'referensi_diisi_at',
@@ -98,6 +102,8 @@ class Permit extends Model
             'wah_isolasi_diperlukan'   => 'boolean',
             'wah_isolasi_diisi_at'     => 'datetime',
             'cert_isolation_diperlukan' => 'boolean',
+            'cert_scaffolding_diperlukan' => 'boolean',
+            'cert_excavation_diperlukan' => 'boolean',
         ];
     }
 

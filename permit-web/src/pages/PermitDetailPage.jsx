@@ -586,8 +586,30 @@ export default function PermitDetailPage() {
                       </>
                     ) : "Tidak diperlukan"}
                   </div>
-                  <div><span className="font-medium">Scaffolding:</span> {permit.cert_scaffolding || "-"}</div>
-                  <div><span className="font-medium">Excavation:</span> {permit.cert_excavation || "-"}</div>
+                  <div className="sm:col-span-2">
+                    <span className="font-medium">Sertifikat Scaffolding:</span>{" "}
+                    {permit.cert_scaffolding_diperlukan ? (
+                      <>
+                        Diperlukan — {permit.cert_scaffolding || "-"}
+                        {permit.cert_scaffolding_file_path && (
+                          <a href={wahFileUrl(permit.cert_scaffolding_file_path)} target="_blank" rel="noreferrer"
+                            className="ml-2 text-blue-600 hover:underline">Lihat file</a>
+                        )}
+                      </>
+                    ) : "Tidak diperlukan"}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="font-medium">Sertifikat Excavation:</span>{" "}
+                    {permit.cert_excavation_diperlukan ? (
+                      <>
+                        Diperlukan — {permit.cert_excavation || "-"}
+                        {permit.cert_excavation_file_path && (
+                          <a href={wahFileUrl(permit.cert_excavation_file_path)} target="_blank" rel="noreferrer"
+                            className="ml-2 text-blue-600 hover:underline">Lihat file</a>
+                        )}
+                      </>
+                    ) : "Tidak diperlukan"}
+                  </div>
                   {permit.sistem_safety_dinonaktifkan && (
                     <div className="sm:col-span-2">
                       <span className="font-medium">Sistem safety di-non-aktifkan:</span> {permit.sistem_safety_dinonaktifkan}

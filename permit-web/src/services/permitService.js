@@ -36,6 +36,10 @@ export const storeReferences = (id, payload) => {
   });
   fd.append("cert_isolation_diperlukan", payload.cert_isolation_diperlukan ? 1 : 0);
   if (payload.cert_isolation_file) fd.append("cert_isolation_file", payload.cert_isolation_file);
+  fd.append("cert_scaffolding_diperlukan", payload.cert_scaffolding_diperlukan ? 1 : 0);
+  if (payload.cert_scaffolding_file) fd.append("cert_scaffolding_file", payload.cert_scaffolding_file);
+  fd.append("cert_excavation_diperlukan", payload.cert_excavation_diperlukan ? 1 : 0);
+  if (payload.cert_excavation_file) fd.append("cert_excavation_file", payload.cert_excavation_file);
   return api.post(`/permits/${id}/references`, fd);
 };
 

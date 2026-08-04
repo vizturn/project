@@ -26,28 +26,37 @@ class IssuancePrepController extends Controller
 
         $data = $request->validated();
 
-        // Sertifikat isolasi: bila diperlukan, file wajib (kecuali sudah ada
-        // file lama dari penyimpanan sebelumnya).
-        $diperlukan = $request->boolean('cert_isolation_diperlukan');
-        $filePathLama = $permit->cert_isolation_file_path;
+        // Proses 3 sertifikat kondisional (isolasi, scaffolding, excavation)
+        // dengan pola sama: bila diperlukan → nomor & file wajib.
+        $sertifikat = [
+            'cert_isolation'   => ['label' => 'Isolasi',     'folder' => 'isolasi'],
+            'cert_scaffolding' => ['label' => 'Scaffolding', 'folder' => 'scaffolding'],
+            'cert_excavation'  => ['label' => 'Excavation',  'folder' => 'excavation'],
+        ];
 
-        if ($diperlukan && ! $request->hasFile('cert_isolation_file') && ! $filePathLama) {
-            return response()->json([
-                'message' => 'File Sertifikat Isolasi wajib diunggah bila sertifikat isolasi diperlukan.',
-            ], 422);
+        foreach ($sertifikat as $key => $info) {
+            $diperlukan   = $request->boolean($key . '_diperlukan');
+            $fileKey      = $key . '_file';
+            $filePathKey  = $key . '_file_path';
+            $filePathLama = $permit->{$filePathKey};
+
+            if ($diperlukan && ! $request->hasFile($fileKey) && ! $filePathLama) {
+                return response()->json([
+                    'message' => "File Sertifikat {$info['label']} wajib diunggah bila diperlukan.",
+                ], 422);
+            }
+
+            $filePath = $filePathLama;
+            if ($request->hasFile($fileKey)) {
+                $filePath = $request->file($fileKey)->store('sertifikat/' . $info['folder'] . '/' . $permit->id, 'public');
+            }
+
+            unset($data[$fileKey]);
+            $data[$key . '_diperlukan'] = $diperlukan;
+            $data[$key]                 = $diperlukan ? ($data[$key] ?? null) : null;
+            $data[$filePathKey]         = $diperlukan ? $filePath : null;
         }
 
-        // Simpan file bila ada unggahan baru; jika tidak diperlukan, kosongkan.
-        $filePath = $filePathLama;
-        if ($request->hasFile('cert_isolation_file')) {
-            $filePath = $request->file('cert_isolation_file')->store('sertifikat/isolasi/' . $permit->id, 'public');
-        }
-
-        // Buang key file dari data (bukan kolom DB) & set field turunan.
-        unset($data['cert_isolation_file']);
-        $data['cert_isolation_diperlukan'] = $diperlukan;
-        $data['cert_isolation']            = $diperlukan ? ($data['cert_isolation'] ?? null) : null;
-        $data['cert_isolation_file_path']  = $diperlukan ? $filePath : null;
         $data['referensi_diisi_at'] = now();
 
         $permit->update($data);
