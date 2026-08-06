@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Button from "./Button";
 import { toast } from "sonner";
 import { ShieldCheck } from "lucide-react";
@@ -13,7 +13,18 @@ export default function CseIsolationForm({ onSubmit, busy }) {
   const [certNomor, setCertNomor] = useState("");
   const [certFile, setCertFile] = useState(null);
 
-  const kirim = () => {
+  // Tombol jadi abu ("tersimpan") setelah submit sukses, balik hijau saat input diubah.
+  const [sudahDisimpan, setSudahDisimpan] = useState(false);
+  const lewatiRenderPertama = useRef(true);
+  useEffect(() => {
+    if (lewatiRenderPertama.current) {
+      lewatiRenderPertama.current = false;
+      return;
+    }
+    setSudahDisimpan(false);
+  }, [diperlukan, certNomor, certFile]);
+
+  const kirim = async () => {
     if (diperlukan === null) { toast.error("Pilih apakah Isolasi Energi diperlukan."); return; }
     if (diperlukan) {
       if (!certNomor.trim()) { toast.error("Nomor Sertifikat Isolasi wajib diisi."); return; }
@@ -27,7 +38,11 @@ export default function CseIsolationForm({ onSubmit, busy }) {
       fd.append("cse_isolasi_cert_file", certFile);
     }
 
-    onSubmit(fd);
+    const ok = await onSubmit(fd);
+    if (ok) {
+      lewatiRenderPertama.current = true;
+      setSudahDisimpan(true);
+    }
   };
 
   return (
@@ -69,7 +84,9 @@ export default function CseIsolationForm({ onSubmit, busy }) {
         </div>
       )}
 
-      <Button onClick={kirim} busy={busy}>Simpan &amp; Kirim ke PA</Button>
+      <Button onClick={kirim} busy={busy} variant={sudahDisimpan ? "saved" : "primary"}>
+        {sudahDisimpan ? "✓ Tersimpan" : "Simpan & Kirim ke PA"}
+      </Button>
     </div>
   );
 }

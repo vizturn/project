@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Button from "./Button";
 import { getHazardOptions } from "../services/hazardService";
 import { toast } from "sonner";
@@ -16,6 +16,17 @@ export default function HazardForm({ permit, awal, judul, labelTombol, onSubmit,
   const [jsaFile, setJsaFile] = useState(null);
   const [risiko, setRisiko] = useState(awal?.tingkat_risiko ?? "");
   const [lainnya, setLainnya] = useState(awal?.bahaya_lainnya ?? "");
+
+  // Tombol jadi abu ("tersimpan") setelah submit sukses, balik hijau saat input diubah.
+  const [sudahDisimpan, setSudahDisimpan] = useState(false);
+  const lewatiRenderPertama = useRef(true);
+  useEffect(() => {
+    if (lewatiRenderPertama.current) {
+      lewatiRenderPertama.current = false;
+      return;
+    }
+    setSudahDisimpan(false);
+  }, [checked, nomorJsa, jsaFile, risiko, lainnya]);
 
   useEffect(() => {
     getHazardOptions(permit.id)
@@ -41,7 +52,7 @@ export default function HazardForm({ permit, awal, judul, labelTombol, onSubmit,
       [typeId]: { ...(prev[typeId] || {}), [no]: !prev[typeId]?.[no] },
     }));
 
-  const kirim = () => {
+  const kirim = async () => {
     if (!risiko) {
       toast.error("Tingkat risiko keseluruhan wajib dipilih.");
       return;
@@ -54,13 +65,17 @@ export default function HazardForm({ permit, awal, judul, labelTombol, onSubmit,
         .map(Number),
     }));
 
-    onSubmit({
+    const ok = await onSubmit({
       hazards,
       nomor_jsa: nomorJsa || null,
       jsa_file: jsaFile,
       tingkat_risiko: risiko,
       bahaya_lainnya: lainnya || null,
     });
+    if (ok) {
+      lewatiRenderPertama.current = true;
+      setSudahDisimpan(true);
+    }
   };
 
   if (loading) return <p className="text-sm text-slate-500">Memuat daftar bahaya...</p>;
@@ -157,7 +172,7 @@ export default function HazardForm({ permit, awal, judul, labelTombol, onSubmit,
         </div>
       </div>
 
-      <Button onClick={kirim} busy={busy}>{labelTombol}</Button>
+      <Button onClick={kirim} busy={busy} variant={sudahDisimpan ? "saved" : "primary"}>{sudahDisimpan ? "✓ Tersimpan" : labelTombol}</Button>
     </div>
   );
 }

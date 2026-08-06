@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Button from "./Button";
 import { FileStack } from "lucide-react";
 import { wahFileUrl } from "../services/wahService";
@@ -26,9 +26,20 @@ export default function ReferenceForm({ awal, onSubmit, busy }) {
   const [excavationPerlu, setExcavationPerlu] = useState(!!awal?.cert_excavation_diperlukan);
   const [excavationFile, setExcavationFile] = useState(null);
 
+  // Tombol jadi abu ("tersimpan") setelah submit sukses, balik hijau saat input diubah.
+  const [sudahDisimpan, setSudahDisimpan] = useState(false);
+  const lewatiRenderPertama = useRef(true);
+  useEffect(() => {
+    if (lewatiRenderPertama.current) {
+      lewatiRenderPertama.current = false;
+      return;
+    }
+    setSudahDisimpan(false);
+  }, [form, isolasiPerlu, isolasiFile, scaffoldingPerlu, scaffoldingFile, excavationPerlu, excavationFile]);
+
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
-  const kirim = () => {
+  const kirim = async () => {
     // Validasi ringan sisi klien untuk sertifikat wajib.
     const cek = [
       { perlu: isolasiPerlu, nomor: form.cert_isolation, file: isolasiFile, lama: awal?.cert_isolation_file_path, label: "Isolasi" },
@@ -57,7 +68,11 @@ export default function ReferenceForm({ awal, onSubmit, busy }) {
     payload.cert_scaffolding_file = scaffoldingFile;
     payload.cert_excavation_diperlukan = excavationPerlu;
     payload.cert_excavation_file = excavationFile;
-    onSubmit(payload);
+    const ok = await onSubmit(payload);
+    if (ok) {
+      lewatiRenderPertama.current = true;
+      setSudahDisimpan(true);
+    }
   };
 
   const input = (k, label, placeholder = "Tulis nomor") => (
@@ -138,8 +153,8 @@ export default function ReferenceForm({ awal, onSubmit, busy }) {
         />
       </div>
 
-      <Button onClick={kirim} busy={busy}>
-        {sudahDiisi ? "Perbarui Bagian 4" : "Simpan Bagian 4"}
+      <Button onClick={kirim} busy={busy} variant={sudahDisimpan ? "saved" : "primary"}>
+        {sudahDisimpan ? "✓ Tersimpan" : (sudahDiisi ? "Perbarui Bagian 4" : "Simpan Bagian 4")}
       </Button>
     </div>
   );

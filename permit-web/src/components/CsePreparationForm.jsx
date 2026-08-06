@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Button from "./Button";
 import { toast } from "sonner";
 import { HardHat, Wrench, UserCheck } from "lucide-react";
@@ -27,13 +27,24 @@ export default function CsePreparationForm({ onSubmit, busy }) {
   const [peralatan, setPeralatan] = useState({});
   const [peralatanLainnya, setPeralatanLainnya] = useState("");
 
-  const kirim = () => {
+  // Tombol jadi abu ("tersimpan") setelah submit sukses, balik hijau saat input diubah.
+  const [sudahDisimpan, setSudahDisimpan] = useState(false);
+  const lewatiRenderPertama = useRef(true);
+  useEffect(() => {
+    if (lewatiRenderPertama.current) {
+      lewatiRenderPertama.current = false;
+      return;
+    }
+    setSudahDisimpan(false);
+  }, [petugasJagaNama, alatKomunikasi, nomorJsa, jsaFile, peralatan, peralatanLainnya]);
+
+  const kirim = async () => {
     if (!petugasJagaNama.trim()) {
       toast.error("Nama Petugas Jaga wajib diisi.");
       return;
     }
 
-    onSubmit({
+    const ok = await onSubmit({
       cse_petugas_jaga_nama: petugasJagaNama.trim(),
       cse_alat_komunikasi: alatKomunikasi.trim() || null,
       nomor_jsa: nomorJsa.trim() || null,
@@ -41,6 +52,10 @@ export default function CsePreparationForm({ onSubmit, busy }) {
       peralatan: Object.keys(peralatan).filter((k) => peralatan[k]),
       peralatan_lainnya: peralatanLainnya.trim() || null,
     });
+    if (ok) {
+      lewatiRenderPertama.current = true;
+      setSudahDisimpan(true);
+    }
   };
 
   return (
@@ -128,8 +143,8 @@ export default function CsePreparationForm({ onSubmit, busy }) {
         </div>
       </div>
 
-      <Button onClick={kirim} busy={busy}>
-        Simpan Persiapan &amp; Kirim ke IA
+      <Button onClick={kirim} busy={busy} variant={sudahDisimpan ? "saved" : "primary"}>
+        {sudahDisimpan ? "✓ Tersimpan" : "Simpan Persiapan & Kirim ke IA"}
       </Button>
     </div>
   );

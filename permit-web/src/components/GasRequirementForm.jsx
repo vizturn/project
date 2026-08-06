@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Button from "./Button";
 import { FlaskConical } from "lucide-react";
 
@@ -19,11 +19,27 @@ export default function GasRequirementForm({ awal, onSubmit, busy }) {
   const adaUji = form.gas_uji_flammable || form.gas_uji_oksigen || form.gas_uji_beracun;
   const sudah = !!awal?.gas_ditetapkan_at;
 
-  const kirim = () =>
-    onSubmit({
+  // Tombol jadi abu ("tersimpan") setelah submit sukses, balik hijau saat input diubah.
+  const [sudahDisimpan, setSudahDisimpan] = useState(false);
+  const lewatiRenderPertama = useRef(true);
+  useEffect(() => {
+    if (lewatiRenderPertama.current) {
+      lewatiRenderPertama.current = false;
+      return;
+    }
+    setSudahDisimpan(false);
+  }, [form]);
+
+  const kirim = async () => {
+    const ok = await onSubmit({
       ...form,
       gas_periode_ulang: form.gas_periode_ulang.trim() || null,
     });
+    if (ok) {
+      lewatiRenderPertama.current = true;
+      setSudahDisimpan(true);
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -69,8 +85,8 @@ export default function GasRequirementForm({ awal, onSubmit, busy }) {
         />
       </div>
 
-      <Button onClick={kirim} busy={busy}>
-        {sudah ? "Perbarui Bagian 5" : "Simpan Bagian 5"}
+      <Button onClick={kirim} busy={busy} variant={sudahDisimpan ? "saved" : "primary"}>
+        {sudahDisimpan ? "✓ Tersimpan" : (sudah ? "Perbarui Bagian 5" : "Simpan Bagian 5")}
       </Button>
     </div>
   );
