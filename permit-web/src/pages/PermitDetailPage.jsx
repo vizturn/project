@@ -716,12 +716,12 @@ export default function PermitDetailPage() {
 
         {/* Uji gas oleh AGT saat izin disetujui (opsional, sebelum Bagian 3) */}
         {S === "disetujui" && hasRole("AGT") && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <Section title="Uji Gas (AGT)" icon={FlaskConical}>
             <GasResultForm
               busy={busy}
               onSubmit={(payload) => run(() => addGasTest(id, payload), "Uji gas tersimpan.")}
             />
-          </div>
+          </Section>
         )}
 
         {/*
@@ -735,22 +735,22 @@ export default function PermitDetailPage() {
         {/* Bagian 3 (khusus CSE): PA mengisi Persiapan (petugas jaga, peralatan, JSA)
             setelah izin disetujui — bersamaan dengan identifikasi bahaya bila gabungan. */}
         {["disetujui", "menunggu_persiapan_pa"].includes(S) && isOwnerPA && isCSE && !permit.cse_persiapan_diisi_at && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <Section title="Persiapan Ruang Terbatas (Bagian 3 — CSE)" icon={FileText} terisi={!!permit.cse_persiapan_diisi_at}>
             <CsePreparationForm busy={busy} onSubmit={doCsePreparation} />
-          </div>
+          </Section>
         )}
 
         {/* Isolasi Energi CSE (opsional): IA menentukan kebutuhan & sertifikat pada
             tahap menunggu_penerbitan, sebelum menerbitkan izin. */}
         {S === "menunggu_penerbitan" && hasRole("IA") && isCSE && !permit.cse_isolasi_diisi_at && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <Section title="Evaluasi Isolasi Energi CSE (Bagian 3 — IA)" icon={FileText} terisi={!!permit.cse_isolasi_diisi_at}>
             <CseIsolationForm busy={busy} onSubmit={doCseIsolation} />
-          </div>
+          </Section>
         )}
 
         {/* Bagian 3 (khusus WAH): PA mengisi Persiapan (JSA/Scaffolding/Pekerja/Peralatan) */}
         {S === "disetujui" && isOwnerPA && isWAH && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <Section title="Persiapan Bekerja di Ketinggian (Bagian 3 — PA)" icon={FileText} terisi={!!permit.wah_persiapan_diisi_at}>
             <WahPreparationForm
               awal={permit}
               judul="Bagian 3 — Persiapan (PA, khusus WAH)"
@@ -758,12 +758,12 @@ export default function PermitDetailPage() {
               busy={busy}
               onSubmit={doWahPreparation}
             />
-          </div>
+          </Section>
         )}
 
         {/* Bagian 3: PA melengkapi Identifikasi Bahaya PTW (HWP/CWP) saat disetujui */}
         {["disetujui", "menunggu_persiapan_pa"].includes(S) && isOwnerPA && isHWPCWP && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <Section title="Identifikasi Bahaya dan Pengendalian (Bagian 3 — PA)" icon={FileText} terisi={!!permit.hazard_diisi_at}>
             <HazardForm
               permit={permit}
               awal={permit}
@@ -772,12 +772,12 @@ export default function PermitDetailPage() {
               busy={busy}
               onSubmit={(payload) => run(() => submitHazards(id, payload), "Identifikasi bahaya tersimpan.")}
             />
-          </div>
+          </Section>
         )}
 
         {/* Bagian 3: IA memeriksa & boleh MENAMBAH/MENGHAPUS bahaya (saat menunggu penerbitan) — HWP/CWP */}
         {S === "menunggu_penerbitan" && hasRole("IA") && isHWPCWP && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <Section title="Pemeriksaan Bahaya (Bagian 3 — IA)" icon={FileText} terisi={!!permit.hazard_diisi_at}>
             <HazardForm
               permit={permit}
               awal={permit}
@@ -786,12 +786,12 @@ export default function PermitDetailPage() {
               busy={busy}
               onSubmit={(payload) => run(() => reviewHazards(id, payload), "Pemeriksaan bahaya tersimpan.")}
             />
-          </div>
+          </Section>
         )}
 
         {/* Bagian 3 (khusus WAH): IA memeriksa & boleh mengedit Persiapan yang diisi PA */}
         {S === "menunggu_penerbitan" && hasRole("IA") && isWAH && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <Section title="Pemeriksaan Persiapan WAH (Bagian 3 — IA)" icon={FileText} terisi={!!permit.wah_persiapan_diisi_at}>
             <WahPreparationForm
               awal={permit}
               judul="Bagian 3 — Pemeriksaan Persiapan WAH (IA) — boleh mengedit"
@@ -799,64 +799,61 @@ export default function PermitDetailPage() {
               busy={busy}
               onSubmit={doReviewWahPreparation}
             />
-          </div>
+          </Section>
         )}
 
         {/* Bagian 3 (khusus WAH): IA menentukan kebutuhan Isolasi Energi — SETELAH Persiapan PA */}
         {S === "menunggu_penerbitan" && hasRole("IA") && isWAH && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <Section title="Evaluasi Isolasi Energi WAH (Bagian 3 — IA)" icon={FileText} terisi={!!permit.wah_isolasi_diisi_at}>
             <WahIsolationForm awal={permit} busy={busy} onSubmit={doWahIsolation} />
-          </div>
+          </Section>
         )}
 
         {/* STEP 27 — Bagian 4: Referensi Pendukung (IA) — hanya HWP/CWP */}
         {S === "menunggu_penerbitan" && hasRole("IA") && butuhReferensi && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <Section title="Bagian 4 — Referensi Pendukung (IA)" icon={FileStack} terisi={!!permit.referensi_diisi_at}>
             <ReferenceForm
               awal={permit}
               busy={busy}
               onSubmit={(payload) => run(() => storeReferences(id, payload), "Bagian 4 tersimpan.")}
             />
-          </div>
+          </Section>
         )}
 
-        {/* STEP 27 — Bagian 5: Penetapan pengujian gas (IA) — hanya HWP/CWP */}
+        {/* STEP 27 — Bagian 5: Penetapan gas + hasil uji gas (IA) — hanya HWP/CWP (digabung) */}
         {S === "menunggu_penerbitan" && hasRole("IA") && butuhReferensi && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <GasRequirementForm
-              awal={permit}
-              busy={busy}
-              onSubmit={(payload) => run(() => storeGasRequirement(id, payload), "Bagian 5 tersimpan.")}
-            />
-          </div>
-        )}
-
-        {/* Uji gas HWP/CWP saat menunggu penerbitan (tanpa fase) */}
-        {S === "menunggu_penerbitan" && (hasRole("IA") || hasRole("AGT")) && butuhReferensi && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <GasResultForm
-              busy={busy}
-              onSubmit={(payload) => run(() => addGasTest(id, payload), "Hasil uji gas tersimpan.")}
-            />
-          </div>
+          <Section title="Bagian 5 — Pengujian Kadar Gas (IA)" icon={FlaskConical} terisi={!!permit.gas_ditetapkan_at}>
+            <div className="space-y-4">
+              <GasRequirementForm
+                awal={permit}
+                busy={busy}
+                onSubmit={(payload) => run(() => storeGasRequirement(id, payload), "Bagian 5 tersimpan.")}
+              />
+              <div className="border-t border-slate-100 pt-4">
+                <GasResultForm
+                  busy={busy}
+                  onSubmit={(payload) => run(() => addGasTest(id, payload), "Hasil uji gas tersimpan.")}
+                />
+              </div>
+            </div>
+          </Section>
         )}
 
         {/* CSE — Pengujian Kadar Gas AWAL (wajib sebelum penerbitan), oleh IA */}
         {S === "menunggu_penerbitan" && hasRole("IA") && isCSE && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="font-semibold text-slate-800 mb-1">Pengujian Kadar Gas — Awal (Bagian 4)</h2>
+          <Section title="Pengujian Kadar Gas — Awal (Bagian 4 — CSE)" icon={FlaskConical}>
             <p className="text-sm text-slate-500 mb-3">Wajib diisi sebelum menerbitkan izin. Pengujian lanjutan diisi saat izin aktif.</p>
             <GasResultForm
               busy={busy}
               onSubmit={(payload) => run(() => addGasTest(id, { ...payload, fase: "awal" }), "Pengujian gas awal tersimpan.")}
             />
-          </div>
+          </Section>
         )}
 
         {/* S14: IA terbitkan (setelah PA melengkapi Bagian 3) */}
         {S === "menunggu_penerbitan" && hasRole("IA") && (
-          <div className="bg-white rounded-xl shadow p-6 space-y-2">
-            <h2 className="font-semibold text-slate-800">{isWAH ? "Bagian 5 — Penerbitan (IA)" : "Bagian 6 — Penerbitan (IA)"}</h2>
+          <Section title={isWAH ? "Bagian 5 — Penerbitan (IA)" : "Bagian 6 — Penerbitan (IA)"} icon={FileCheck2}>
+            <div className="space-y-2">
             <p className="text-sm text-slate-500">
               Saya, IA, menyatakan semua bahaya telah diidentifikasi, semua tindakan pencegahan telah
               dilakukan, dan kondisi aman untuk melaksanakan pekerjaan.
@@ -889,16 +886,14 @@ export default function PermitDetailPage() {
             <Button onClick={doIssue} busy={busy}>
               <FileCheck2 size={16} /> Terbitkan Izin
             </Button>
-          </div>
+            </div>
+          </Section>
         )}
 
         {/* STEP 27 — Bagian 6/7: Penerimaan PTW oleh PA */}
         {S === "menunggu_penerimaan" && isOwnerPA && (
-          <div className="bg-white rounded-xl shadow p-6 space-y-3">
-            <div className="flex items-center gap-2">
-              <ClipboardCheck className="text-violet-600" size={18} />
-              <h2 className="font-semibold text-slate-800">{isWAH ? "Bagian 6 — Penerimaan (PA)" : "Bagian 7 — Penerimaan PTW (PA)"}</h2>
-            </div>
+          <Section title={isWAH ? "Bagian 6 — Penerimaan (PA)" : "Bagian 7 — Penerimaan PTW (PA)"} icon={ClipboardCheck}>
+            <div className="space-y-3">
             <p className="text-sm text-slate-600">
               Saya, PA, telah membaca dan memahami semua kondisi dalam PTW ini beserta lampirannya.
               Saya menerima tanggung jawab pelaksanaan pekerjaan sesuai PTW ini. Saya akan menghentikan
@@ -931,40 +926,41 @@ export default function PermitDetailPage() {
             <Button onClick={doAccept} busy={busy}>
               Terima PTW &amp; Aktifkan
             </Button>
-          </div>
+            </div>
+          </Section>
         )}
 
         {/* CSE — Pengujian Kadar Gas LANJUTAN (saat izin aktif), oleh IA, bisa berkali-kali */}
         {S === "aktif" && isCSE && hasRole("IA") && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="font-semibold text-slate-800 mb-1">Pengujian Kadar Gas — Lanjutan (Bagian 4)</h2>
+          <Section title="Pengujian Kadar Gas — Lanjutan (Bagian 4 — CSE)" icon={FlaskConical}>
             <p className="text-sm text-slate-500 mb-3">Pengujian ulang selama pekerjaan berlangsung. Waktu dicatat otomatis; tambah setiap kali melakukan pengujian.</p>
             <GasResultForm
               busy={busy}
               onSubmit={(payload) => run(() => addGasTest(id, { ...payload, fase: "lanjutan" }), "Pengujian gas lanjutan tersimpan.")}
             />
-          </div>
+          </Section>
         )}
 
         {/* Bagian 7 (khusus CSE): Petugas Jaga / PA catat keluar-masuk ruang terbatas (saat aktif) */}
         {S === "aktif" && isCSE && isOwnerPA && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <Section title="Catatan Masuk/Keluar Ruang Terbatas (Bagian 7 — CSE)" icon={ClipboardCheck}>
             <CseAccessLogForm busy={busy} onSubmit={doCseAccessLog} />
-          </div>
+          </Section>
         )}
 
         {/* Bagian 7 (khusus WAH): PA catat naik/turun (saat aktif) */}
         {S === "aktif" && isOwnerPA && isWAH && (
-          <div className="bg-white rounded-xl shadow p-6">
+          <Section title="Catatan Naik/Turun (Bagian 7 — WAH)" icon={ClipboardCheck}>
             <WahAccessLogForm busy={busy} onSubmit={doWahAccessLog} />
-          </div>
+          </Section>
         )}
 
         {/* S16: PA kembalikan (Bagian 8 — Pengembalian) / S17: PA selesaikan (saat aktif) */}
         {S === "aktif" && isOwnerPA && (
-          <div className="bg-white rounded-xl shadow p-6 space-y-3">
+          <Section title="Bagian 8 — Pengembalian & Penyelesaian (PA)" icon={RotateCcw}>
+            <div className="space-y-3">
             <div>
-              <h2 className="font-semibold text-slate-800 mb-2">Bagian 8 — Pengembalian (PA)</h2>
+              <h3 className="font-medium text-slate-700 mb-2">Pengembalian (Tunda)</h3>
               <div className="flex flex-wrap items-end gap-2">
                 <label className="text-sm text-slate-600">
                   Tanggal
@@ -986,13 +982,14 @@ export default function PermitDetailPage() {
                 <CheckCheck size={16} /> Selesaikan Pekerjaan
               </Button>
             </div>
-          </div>
+            </div>
+          </Section>
         )}
 
         {/* S16: IA revalidasi (Bagian 8 — Revalidasi, saat ditunda) — form terpisah dari Pengembalian PA */}
         {S === "ditunda" && hasRole("IA") && (
-          <div className="bg-white rounded-xl shadow p-6 space-y-2">
-            <h2 className="font-semibold text-slate-800">Bagian 8 — Revalidasi (IA)</h2>
+          <Section title="Bagian 8 — Revalidasi (IA)" icon={RefreshCw}>
+            <div className="space-y-2">
             <p className="text-sm text-slate-500">
               Tentukan tanggal &amp; jam revalidasi Anda sendiri, lalu kirim ke PA — izin akan berstatus AKTIF kembali.
             </p>
@@ -1011,7 +1008,8 @@ export default function PermitDetailPage() {
                 <RefreshCw size={16} /> Kirim Revalidasi ke PA
               </Button>
             </div>
-          </div>
+            </div>
+          </Section>
         )}
 
         {/* S17: IA tutup (saat selesai) */}
@@ -1025,14 +1023,15 @@ export default function PermitDetailPage() {
 
         {/* S18: SPV live audit (saat aktif) */}
         {S === "aktif" && hasRole("SPV") && (
-          <div className="bg-white rounded-xl shadow p-6 space-y-2">
-            <div className="flex items-center gap-2"><ClipboardCheck className="text-emerald-600" size={18} /><h2 className="font-semibold text-slate-800">Live Audit (Supervisor)</h2></div>
+          <Section title="Live Audit (Supervisor)" icon={ClipboardCheck}>
+            <div className="space-y-2">
             <textarea value={catatanAudit} onChange={(e) => setCatatanAudit(e.target.value)} rows={2}
               placeholder="Catatan temuan (opsional)" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
             <Button onClick={() => run(() => addLiveAudit(id, catatanAudit || null), "Live audit tercatat.")} busy={busy}>
               Catat Live Audit
             </Button>
-          </div>
+            </div>
+          </Section>
         )}
 
         {/* Riwayat live audit */}
