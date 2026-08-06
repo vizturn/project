@@ -20,7 +20,8 @@ import CseAccessLogForm from "../components/CseAccessLogForm";
 import PsbFilesSection from "../components/PsbFilesSection";
 import { submitHazards, reviewHazards } from "../services/hazardService";
 import { toast } from "sonner";
-import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine } from "lucide-react";
+import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine, History } from "lucide-react";
+import Section from "../components/Section";
 
 export default function PermitDetailPage() {
   const { id } = useParams();
@@ -287,16 +288,14 @@ export default function PermitDetailPage() {
           permitId={id}
           files={permit.psb_files || []}
           bisaUnggah={
-            permit.status === "menunggu_approval" && hasRole("AA") &&
-            (permit.approval_authority_id === null || permit.approval_authority?.id === user?.id)
+            permit.status === "disetujui" && isOwnerPA
           }
           onChanged={load}
         />
 
         {/* PSB yang ditetapkan */}
         {permit.psb_forms?.length > 0 && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="font-semibold text-slate-800 mb-2">PSB Ditetapkan</h2>
+          <Section title="PSB Ditetapkan" icon={FileText} defaultOpen>
             <div className="space-y-2">
               {jenisIzin.map((t) => {
                 const forms = permit.psb_forms.filter((f) => f.permit_type_id === t.id);
@@ -325,16 +324,12 @@ export default function PermitDetailPage() {
                 </div>
               )}
             </div>
-          </div>
+          </Section>
         )}
 
         {/* Bagian 3 tersimpan (read-only, khusus WAH) — bagian IA: Isolasi Energi */}
         {permit.wah_isolasi_diisi_at && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="text-indigo-600" size={18} />
-              <h2 className="font-semibold text-slate-800">Evaluasi Isolasi Energi (Bagian 3 — IA)</h2>
-            </div>
+          <Section title="Evaluasi Isolasi Energi (Bagian 3 — IA)" icon={FileText}>
             <dl className="text-sm text-slate-600 space-y-1">
               <div>
                 <span className="font-medium">Isolasi Energi:</span>{" "}
@@ -351,16 +346,12 @@ export default function PermitDetailPage() {
                 </div>
               )}
             </dl>
-          </div>
+          </Section>
         )}
 
         {/* Bagian 3 tersimpan (read-only, khusus CSE) */}
         {permit.cse_persiapan_diisi_at && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="text-orange-600" size={18} />
-              <h2 className="font-semibold text-slate-800">Persiapan Ruang Terbatas (Bagian 3 — CSE)</h2>
-            </div>
+          <Section title="Persiapan Ruang Terbatas (Bagian 3 — CSE)" icon={FileText}>
             <dl className="text-sm text-slate-600 space-y-1">
               <div>
                 <span className="font-medium">Isolasi Energi:</span>{" "}
@@ -417,16 +408,12 @@ export default function PermitDetailPage() {
                 )}
               </div>
             </div>
-          </div>
+          </Section>
         )}
 
         {/* Bagian 3 tersimpan (read-only, khusus WAH) */}
         {permit.wah_persiapan_diisi_at && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="text-amber-600" size={18} />
-              <h2 className="font-semibold text-slate-800">Persiapan — JSA & Scaffolding (Bagian 3)</h2>
-            </div>
+          <Section title="Persiapan — JSA & Scaffolding (Bagian 3)" icon={FileText}>
             <dl className="text-sm text-slate-600 space-y-1">
               <div>
                 <span className="font-medium">Nomor JSA:</span> {permit.nomor_jsa || "-"}
@@ -519,13 +506,12 @@ export default function PermitDetailPage() {
                 )}
               </div>
             </div>
-          </div>
+          </Section>
         )}
 
         {/* Bagian 3 tersimpan (read-only) */}
         {permit.hazards?.length > 0 && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="font-semibold text-slate-800 mb-2">Identifikasi Bahaya (Bagian 3)</h2>
+          <Section title="Identifikasi Bahaya (Bagian 3)" icon={FileText} defaultOpen>
             <div className="space-y-2">
               {jenisIzin.map((t) => {
                 const items = permit.hazards.filter((h) => h.permit_type_id === t.id);
@@ -562,7 +548,7 @@ export default function PermitDetailPage() {
                   : "-"}
               </div>
             </dl>
-          </div>
+          </Section>
         )}
 
         {/* Bagian 4 & 5 tersimpan (read-only) */}
@@ -645,8 +631,7 @@ export default function PermitDetailPage() {
 
         {/* Riwayat uji gas */}
         {permit.gas_tests?.length > 0 && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Uji Gas</h2>
+          <Section title="Riwayat Uji Gas" icon={FlaskConical}>
             <table className="w-full text-sm">
               <thead><tr className="text-left text-slate-500 border-b border-slate-200">
                 <th className="py-1">Waktu</th><th>Fase</th><th>O₂%</th><th>LEL%</th><th>CO</th><th>H₂S</th><th>Petugas</th>
@@ -662,7 +647,7 @@ export default function PermitDetailPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </Section>
         )}
 
         {/* ===== PANEL AKSI (sesuai role + status) ===== */}
@@ -1052,8 +1037,7 @@ export default function PermitDetailPage() {
 
         {/* Riwayat live audit */}
         {permit.live_audits?.length > 0 && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Live Audit</h2>
+          <Section title="Riwayat Live Audit" icon={ClipboardCheck}>
             <ul className="text-sm text-slate-600 space-y-1">
               {permit.live_audits.map((a) => (
                 <li key={a.id} className="border-b border-slate-100 py-1">
@@ -1062,13 +1046,12 @@ export default function PermitDetailPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Section>
         )}
 
         {/* Riwayat keluar-masuk ruang terbatas (khusus CSE) */}
         {permit.cse_access_logs?.length > 0 && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Masuk/Keluar Ruang Terbatas (Bagian 7 — CSE)</h2>
+          <Section title="Riwayat Masuk/Keluar Ruang Terbatas (Bagian 7 — CSE)" icon={History}>
             <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
@@ -1098,13 +1081,12 @@ export default function PermitDetailPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </Section>
         )}
 
         {/* Riwayat naik/turun (khusus WAH) */}
         {permit.wah_access_logs?.length > 0 && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Naik/Turun (Bagian 7 — WAH)</h2>
+          <Section title="Riwayat Naik/Turun (Bagian 7 — WAH)" icon={History}>
             <ul className="text-sm text-slate-600 space-y-1">
               {permit.wah_access_logs.map((l) => (
                 <li key={l.id} className="border-b border-slate-100 py-1">
@@ -1116,13 +1098,12 @@ export default function PermitDetailPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Section>
         )}
 
         {/* Riwayat Pengembalian & Revalidasi (Bagian 8) */}
         {permit.revalidations?.length > 0 && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Pengembalian &amp; Revalidasi</h2>
+          <Section title="Riwayat Pengembalian & Revalidasi" icon={RotateCcw}>
             <ul className="text-sm text-slate-600 space-y-1">
               {permit.revalidations.map((r) => (
                 <li key={r.id} className="border-b border-slate-100 py-1">
@@ -1136,13 +1117,12 @@ export default function PermitDetailPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Section>
         )}
 
         {/* Riwayat status */}
         {permit.status_histories?.length > 0 && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <h2 className="font-semibold text-slate-800 mb-2">Riwayat Status</h2>
+          <Section title="Riwayat Status" icon={History}>
             <ul className="text-sm text-slate-600 space-y-1">
               {permit.status_histories.map((h) => (
                 <li key={h.id} className="flex items-center gap-2">
@@ -1150,7 +1130,7 @@ export default function PermitDetailPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Section>
         )}
       </div>
     </div>
