@@ -82,11 +82,25 @@ const STATUS_MENUNGGU = [
   "ditunda",
 ];
 
+// Status non-menunggu yang SELALU ditampilkan sebagai kartu tersendiri,
+// walau jumlahnya 0 — supaya kolom statistik konsisten sejak awal.
+const STATUS_TETAP = [
+  "disetujui",
+  "aktif",
+  "selesai",
+  "ditolak",
+  "kadaluarsa",
+  "closed",
+];
+
 // Ringkas by_status: jumlahkan semua status menunggu jadi satu angka "pending",
-// sisanya (non-menunggu) dikembalikan terurut sebagai entri terpisah.
+// lalu kembalikan STATUS_TETAP terurut (0 bila tak ada datanya) + status lain
+// tak terduga yang punya data.
 function ringkasStatus(byStatus) {
   let pending = 0;
   const lain = {};
+  // Awali semua status tetap dengan 0 agar selalu muncul.
+  for (const s of STATUS_TETAP) lain[s] = 0;
   for (const [s, jml] of Object.entries(byStatus)) {
     if (STATUS_MENUNGGU.includes(s)) pending += jml;
     else lain[s] = jml;
