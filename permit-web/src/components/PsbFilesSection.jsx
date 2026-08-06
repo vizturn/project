@@ -7,7 +7,8 @@ import { uploadPsbFile, deletePsbFile, psbFileUrl } from "../services/masterServ
  * Bagian "File PSB" pada halaman detail izin.
  *
  * Menampilkan seluruh file PSB milik izin. Tombol unggah/hapus hanya muncul
- * bila `bisaUnggah` true (AA yang ditugaskan, saat status menunggu_approval).
+ * bila `bisaUnggah` true (PA pemilik, saat status disetujui — setelah AA
+ * menetapkan PSB yang dibutuhkan).
  *
  * Props:
  *   - permitId
@@ -106,7 +107,7 @@ export default function PsbFilesSection({ permitId, files = [], bisaUnggah, onCh
           </button>
           <p className="mt-2 flex items-start gap-1.5 text-xs text-slate-500">
             <ShieldAlert size={13} className="shrink-0 mt-0.5" />
-            Wajib minimal 1 file untuk menyetujui izin. Maksimal {MAKS_FILE} file, PDF, ≤ 5 MB per file.
+            Wajib minimal 1 file sebelum melengkapi Identifikasi Bahaya. Maksimal {MAKS_FILE} file, PDF, ≤ 5 MB per file.
           </p>
         </div>
       )}

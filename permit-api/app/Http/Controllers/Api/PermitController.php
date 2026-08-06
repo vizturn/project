@@ -225,12 +225,8 @@ class PermitController extends Controller
             return response()->json(['message' => 'Izin ini ditujukan kepada Approval Authority lain.'], 403);
         }
 
-        // Wajib: AA mengunggah minimal 1 file PSB sebelum menyetujui izin.
-        if ($permit->psbFiles()->count() < 1) {
-            return response()->json([
-                'message' => 'Wajib mengunggah minimal 1 file PSB sebelum menyetujui izin.',
-            ], 422);
-        }
+        // Catatan: file PSB kini diunggah PA setelah izin disetujui (bukan AA saat
+        // approve). AA hanya menetapkan PSB apa yang dibutuhkan (checklist di bawah).
 
         $data = $request->validated();
 

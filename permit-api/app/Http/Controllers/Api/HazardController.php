@@ -68,6 +68,14 @@ class HazardController extends Controller
             ], 422);
         }
 
+        // Wajib: PA mengunggah minimal 1 file PSB (Life Saving Rules yang telah
+        // diisi manual) sebelum Bagian 3 dikirim ke IA.
+        if ($permit->psbFiles()->count() < 1) {
+            return response()->json([
+                'message' => 'Wajib mengunggah minimal 1 file PSB sebelum melengkapi Identifikasi Bahaya.',
+            ], 422);
+        }
+
         $statusLama = $permit->status;
 
         $this->simpanBahaya($permit, $request->validated(), $request);

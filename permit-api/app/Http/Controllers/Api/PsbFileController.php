@@ -11,8 +11,9 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Upload & hapus file PSB (dokumen pendukung Formulir PSB / Life Saving Rules).
  *
- * File PSB diunggah oleh AA saat menyetujui izin (menentukan PSB yang dibutuhkan
- * berdasarkan uraian pekerjaan PA, lalu melampirkan dokumennya).
+ * Alur: AA menetapkan PSB apa yang dibutuhkan (checklist saat menyetujui izin).
+ * Setelah izin DISETUJUI, PA mengunggah file PSB yang telah ia isi manual
+ * (berdasarkan PSB yang ditetapkan AA).
  *
  * Aturan: maksimal 6 file per izin, tiap file PDF <= 5 MB.
  */
@@ -82,15 +83,14 @@ class PsbFileController extends Controller
     }
 
     /**
-     * Peran pengunggah yang diizinkan: hanya AA yang ditugaskan, saat izin
-     * masih menunggu approval. Mengembalikan "AA" bila boleh, atau null.
+     * Peran pengunggah yang diizinkan: hanya PA pemilik izin, saat izin sudah
+     * DISETUJUI (AA telah menetapkan PSB). Mengembalikan "PA" bila boleh, atau null.
      */
     private function tentukanPeran(Permit $permit, $user): ?string
     {
-        if ($permit->status === 'menunggu_approval'
-            && ($permit->approval_authority_id === null
-                || (int) $permit->approval_authority_id === (int) $user->id)) {
-            return 'AA';
+        if ($permit->status === 'disetujui'
+            && (int) $permit->performing_authority_id === (int) $user->id) {
+            return 'PA';
         }
 
         return null;
