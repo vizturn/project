@@ -11,6 +11,7 @@ import ScreeningPage from "../pages/ScreeningPage";
 import PermitListPage from "../pages/PermitListPage";
 import PermitFormPage from "../pages/PermitFormPage";
 import PermitDetailPage from "../pages/PermitDetailPage";
+import PermitPrintPage from "../pages/PermitPrintPage";
 import BoardPage from "../pages/BoardPage";
 import NotificationsPage from "../pages/NotificationsPage";
 import AuditLogPage from "../pages/AuditLogPage";
@@ -26,6 +27,8 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      // Lembar cetak PTW — di luar AppLayout (tanpa sidebar) agar bersih untuk print.
+      { path: "/permits/:id/print", element: <PermitPrintPage /> },
       {
         // Semua halaman ter-proteksi dibungkus AppLayout → dapat sidebar otomatis.
         element: <AppLayout />,

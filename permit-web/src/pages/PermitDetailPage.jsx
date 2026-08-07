@@ -20,7 +20,7 @@ import CseAccessLogForm from "../components/CseAccessLogForm";
 import PsbFilesSection from "../components/PsbFilesSection";
 import { submitHazards, reviewHazards } from "../services/hazardService";
 import { toast } from "sonner";
-import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine, History } from "lucide-react";
+import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine, History, Printer } from "lucide-react";
 import Section from "../components/Section";
 
 export default function PermitDetailPage() {
@@ -251,9 +251,19 @@ export default function PermitDetailPage() {
   return (
     <div className="min-h-screen bg-slate-100 p-6">
       <div className="max-w-3xl mx-auto space-y-4">
-        <button onClick={() => navigate("/permits")} className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900">
-          <ArrowLeft size={16} /> Daftar Izin
-        </button>
+        <div className="flex items-center justify-between">
+          <button onClick={() => navigate("/permits")} className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900">
+            <ArrowLeft size={16} /> Daftar Izin
+          </button>
+          {["aktif", "selesai", "closed"].includes(S) && (
+            <button
+              onClick={() => navigate(`/permits/${id}/print`)}
+              className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark transition"
+            >
+              <Printer size={16} /> Cetak Lembar PTW
+            </button>
+          )}
+        </div>
 
         {/* Ringkasan izin */}
         <div className="bg-white rounded-xl shadow p-6">
