@@ -24,7 +24,7 @@ class StorePermitRequest extends FormRequest
             'equipment_id'          => ['nullable', 'integer', 'exists:equipment,id'],
             'lokasi'                => ['required', 'string', 'max:150'],
             'deskripsi_pekerjaan'   => ['required', 'string'],
-            'durasi'                => ['nullable', 'string', 'max:50'],
+            'durasi'                => ['required', 'integer', 'min:1', 'max:72'],
 
             // STEP 24 — penugasan: PA menentukan AA & IA yang dituju.
             'approval_authority_id' => ['required', 'integer', 'exists:users,id'],

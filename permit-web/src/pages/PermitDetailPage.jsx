@@ -284,7 +284,7 @@ export default function PermitDetailPage() {
             </div>
             <div><span className="font-medium">Lokasi:</span> {permit.lokasi}</div>
             <div className="col-span-2"><span className="font-medium">Deskripsi:</span> {permit.deskripsi_pekerjaan}</div>
-            <div><span className="font-medium">Durasi:</span> {permit.durasi || "-"}</div>
+            <div><span className="font-medium">Durasi:</span> {permit.durasi ? `${permit.durasi} jam` : "-"}</div>
             <div><span className="font-medium">PA:</span> {permit.performing_authority?.name ?? "-"}</div>
             <div><span className="font-medium">AA (dituju):</span> {permit.approval_authority?.name ?? "-"}</div>
             <div><span className="font-medium">IA (dituju):</span> {permit.issuing_authority?.name ?? "-"}</div>
