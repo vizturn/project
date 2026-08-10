@@ -101,6 +101,11 @@ export default function PermitFormPage() {
       toast.error("Approval Authority (AA) dan Issuing Authority (IA) wajib dipilih.");
       return;
     }
+    const durasiJam = Number(form.durasi);
+    if (!form.durasi || !Number.isInteger(durasiJam) || durasiJam < 1 || durasiJam > 72) {
+      toast.error("Estimasi durasi wajib diisi berupa angka 1–72 jam.");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -108,7 +113,7 @@ export default function PermitFormPage() {
         lokasi: form.lokasi,
         lead_supervisor: form.lead_supervisor || null,
         deskripsi_pekerjaan: form.deskripsi_pekerjaan,
-        durasi: form.durasi || null,
+        durasi: String(durasiJam),
         approval_authority_id: Number(form.approval_authority_id),
         issuing_authority_id: Number(form.issuing_authority_id),
         referensi_wo: form.referensi_wo || null,
@@ -210,12 +215,15 @@ export default function PermitFormPage() {
             placeholder="Uraian singkat pekerjaan"
           />
 
-          <label className="block text-sm text-slate-600 mb-1">Estimasi Durasi</label>
+          <label className="block text-sm text-slate-600 mb-1">Estimasi Durasi (jam) <span className="text-red-500">*</span></label>
           <input
+            type="number"
+            min={1}
+            max={72}
             value={form.durasi}
             onChange={(e) => setField("durasi", e.target.value)}
             className="w-full mb-6 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-            placeholder="Mis. 2 hari / 8 jam"
+            placeholder="Maks. 72 jam"
           />
 
           <div className="border-t border-slate-100 pt-4 mb-4">

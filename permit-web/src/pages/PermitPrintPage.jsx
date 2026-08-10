@@ -127,7 +127,7 @@ export default function PermitPrintPage() {
           <div className="ptw-cell"><span className="ptw-cell-label">Equipment ID</span><span className="ptw-cell-value">{permit.referensi_peralatan ?? "-"}</span></div>
           <div className="ptw-cell"><span className="ptw-cell-label">Reference WO</span><span className="ptw-cell-value">{permit.referensi_wo ?? "-"}</span></div>
           <div className="ptw-cell" style={{ gridColumn: "span 2" }}><span className="ptw-cell-label">Deskripsi Pekerjaan</span><span className="ptw-cell-value">{permit.deskripsi_pekerjaan ?? "-"}</span></div>
-          <div className="ptw-cell"><span className="ptw-cell-label">Durasi</span><span className="ptw-cell-value">{permit.durasi ?? "-"}</span></div>
+          <div className="ptw-cell"><span className="ptw-cell-label">Durasi</span><span className="ptw-cell-value">{permit.durasi ? `${permit.durasi} jam` : "-"}</span></div>
         </div>
 
         {/* Bagian 2 — PSB */}
