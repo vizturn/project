@@ -19,6 +19,12 @@ class Permit extends Model
         'permit_type_id',
         'wo_id',
         'equipment_id',
+        // Reference WO, Peralatan, & Lead/Supervisor kini isian teks manual oleh
+        // PA (bukan dropdown ke tabel master lagi). Kolom wo_id/equipment_id lama
+        // dibiarkan (nullable) untuk kompatibilitas data lama, tidak dipakai form baru.
+        'referensi_wo',
+        'referensi_peralatan',
+        'lead_supervisor',
         'performing_authority_id',
         'approval_authority_id',
         'issuing_authority_id',

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Button from "../components/Button";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
-import { getPermitTypes, getWorkOrders, getEquipment } from "../services/masterService";
+import { getPermitTypes } from "../services/masterService";
 import { getUsersByRole } from "../services/userService";
 import { createPermit, updatePermit, getPermit } from "../services/permitService";
 import { toast } from "sonner";
@@ -15,18 +15,17 @@ export default function PermitFormPage() {
   const screeningIdParam = params.get("screening"); // opsional, hanya dipakai saat create
 
   const [types, setTypes] = useState([]);
-  const [workOrders, setWorkOrders] = useState([]);
-  const [equipment, setEquipment] = useState([]);
   const [aaList, setAaList] = useState([]);
   const [iaList, setIaList] = useState([]);
   const [jenisDipilih, setJenisDipilih] = useState({}); // { permit_type_id: true }
   const [existingScreeningId, setExistingScreeningId] = useState(null); // Opsi A: dipertahankan apa adanya saat edit
   const [form, setForm] = useState({
     lokasi: "",
+    lead_supervisor: "",
     deskripsi_pekerjaan: "",
     durasi: "",
-    wo_id: "",
-    equipment_id: "",
+    referensi_wo: "",
+    referensi_peralatan: "",
     approval_authority_id: "",
     issuing_authority_id: "",
   });
@@ -35,7 +34,7 @@ export default function PermitFormPage() {
 
   useEffect(() => {
     const masters = Promise.all([
-      getPermitTypes(), getWorkOrders(), getEquipment(),
+      getPermitTypes(),
       getUsersByRole("AA"), getUsersByRole("IA"),
     ]);
 
@@ -43,10 +42,8 @@ export default function PermitFormPage() {
     const permitReq = isEdit ? getPermit(id) : Promise.resolve(null);
 
     Promise.all([masters, permitReq])
-      .then(([[t, w, e, aa, ia], permitRes]) => {
+      .then(([[t, aa, ia], permitRes]) => {
         setTypes(t.data.data);
-        setWorkOrders(w.data.data);
-        setEquipment(e.data.data);
         setAaList(aa.data.data);
         setIaList(ia.data.data);
 
@@ -64,10 +61,11 @@ export default function PermitFormPage() {
           // Pre-fill form dari data lama.
           setForm({
             lokasi: p.lokasi ?? "",
+            lead_supervisor: p.lead_supervisor ?? "",
             deskripsi_pekerjaan: p.deskripsi_pekerjaan ?? "",
             durasi: p.durasi ?? "",
-            wo_id: p.wo_id ?? "",
-            equipment_id: p.equipment_id ?? "",
+            referensi_wo: p.referensi_wo ?? "",
+            referensi_peralatan: p.referensi_peralatan ?? "",
             approval_authority_id: p.approval_authority_id ?? "",
             issuing_authority_id: p.issuing_authority_id ?? "",
           });
@@ -113,12 +111,13 @@ export default function PermitFormPage() {
       const payload = {
         permit_type_ids: idsJenis,
         lokasi: form.lokasi,
+        lead_supervisor: form.lead_supervisor || null,
         deskripsi_pekerjaan: form.deskripsi_pekerjaan,
         durasi: String(durasiJam),
         approval_authority_id: Number(form.approval_authority_id),
         issuing_authority_id: Number(form.issuing_authority_id),
-        wo_id: form.wo_id ? Number(form.wo_id) : null,
-        equipment_id: form.equipment_id ? Number(form.equipment_id) : null,
+        referensi_wo: form.referensi_wo || null,
+        referensi_peralatan: form.referensi_peralatan || null,
         // Opsi A: saat edit kirim screening lama; saat create pakai dari query param.
         screening_id: isEdit
           ? existingScreeningId
@@ -199,6 +198,14 @@ export default function PermitFormPage() {
             placeholder="Mis. Area Stasiun Pengumpul A"
           />
 
+          <label className="block text-sm text-slate-600 mb-1">Nama Lead/Supervisor</label>
+          <input
+            value={form.lead_supervisor}
+            onChange={(e) => setField("lead_supervisor", e.target.value)}
+            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
+            placeholder="Nama Lead/Supervisor penanggung jawab pekerjaan"
+          />
+
           <label className="block text-sm text-slate-600 mb-1">Deskripsi Pekerjaan *</label>
           <textarea
             value={form.deskripsi_pekerjaan}
@@ -243,22 +250,20 @@ export default function PermitFormPage() {
           </div>
 
           <label className="block text-sm text-slate-600 mb-1">Reference WO (opsional)</label>
-          <select value={form.wo_id} onChange={(e) => setField("wo_id", e.target.value)}
-            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand">
-            <option value="">— Tidak dipilih —</option>
-            {workOrders.map((w) => (
-              <option key={w.id} value={w.id}>{w.wo_number} — {w.deskripsi}</option>
-            ))}
-          </select>
+          <input
+            value={form.referensi_wo}
+            onChange={(e) => setField("referensi_wo", e.target.value)}
+            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
+            placeholder="Ketik nomor/referensi WO"
+          />
 
-          <label className="block text-sm text-slate-600 mb-1">Peralatan (opsional)</label>
-          <select value={form.equipment_id} onChange={(e) => setField("equipment_id", e.target.value)}
-            className="w-full mb-6 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand">
-            <option value="">— Tidak dipilih —</option>
-            {equipment.map((e2) => (
-              <option key={e2.id} value={e2.id}>{e2.nama_alat} ({e2.status_kalibrasi})</option>
-            ))}
-          </select>
+          <label className="block text-sm text-slate-600 mb-1">Equipment ID (opsional)</label>
+          <input
+            value={form.referensi_peralatan}
+            onChange={(e) => setField("referensi_peralatan", e.target.value)}
+            className="w-full mb-6 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
+            placeholder="Ketik Equipment ID"
+          />
 
           <Button onClick={submit} disabled={saving} className="w-full">
             {saving ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Buat Pengajuan (Draft)"}
