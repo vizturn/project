@@ -20,7 +20,7 @@ import CseAccessLogForm from "../components/CseAccessLogForm";
 import PsbFilesSection from "../components/PsbFilesSection";
 import { submitHazards, reviewHazards } from "../services/hazardService";
 import { toast } from "sonner";
-import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine, History, Printer } from "lucide-react";
+import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, FileStack, PencilLine, History, Printer } from "lucide-react";
 import Section from "../components/Section";
 
 export default function PermitDetailPage() {
@@ -34,7 +34,7 @@ export default function PermitDetailPage() {
 
   // state form approval & gas test
   const [psbTypes, setPsbTypes] = useState([]);
-  const [selectedPsb, setSelectedPsb] = useState({}); // { [permitTypeId]: { [psbTypeId]: true } }
+  const [selectedPsb, setSelectedPsb] = useState({}); // { [psbTypeId]: true } — SATU checklist untuk semua jenis izin
   const [alasan, setAlasan] = useState("");
   const [gas, setGas] = useState({ oksigen_persen: "", lel_persen: "", co_ppm: "", h2s_ppm: "" });
   const [catatanAudit, setCatatanAudit] = useState("");
@@ -136,26 +136,27 @@ export default function PermitDetailPage() {
     }
   };
 
-  const togglePsb = (typeId, psbId) =>
-    setSelectedPsb((prev) => ({
-      ...prev,
-      [typeId]: { ...(prev[typeId] || {}), [psbId]: !prev[typeId]?.[psbId] },
-    }));
+  const togglePsb = (psbId) =>
+    setSelectedPsb((prev) => ({ ...prev, [psbId]: !prev[psbId] }));
 
   const doApprove = () => {
-    // Kirim PSB per jenis izin: [{ permit_type_id, psb_type_ids: [...] }, ...]
-    const psb = jenisIzin.map((t) => ({
-      permit_type_id: t.id,
-      psb_type_ids: Object.keys(selectedPsb[t.id] || {})
-        .filter((k) => selectedPsb[t.id][k])
-        .map(Number),
-    }));
+    // AA sekarang cukup mencentang PSB SATU KALI untuk seluruh izin (isinya
+    // memang sama walau jenis izin berbeda-beda, mis. HWP+WAH, CWP+CSE, dst).
+    // Backend tetap butuh payload per jenis izin, jadi set PSB yang sama
+    // diduplikasi ke setiap jenis izin yang tercakup di sini.
+    const psbTypeIds = Object.keys(selectedPsb)
+      .filter((k) => selectedPsb[k])
+      .map(Number);
 
-    const kosong = psb.filter((k) => k.psb_type_ids.length === 0);
-    if (kosong.length > 0) {
-      toast.error("Setiap jenis izin wajib memiliki minimal satu PSB.");
+    if (psbTypeIds.length === 0) {
+      toast.error("Minimal satu PSB wajib dipilih.");
       return;
     }
+
+    const psb = jenisIzin.map((t) => ({
+      permit_type_id: t.id,
+      psb_type_ids: psbTypeIds,
+    }));
 
     run(() => approvePermit(id, psb), "Izin disetujui.");
   };
@@ -283,8 +284,11 @@ export default function PermitDetailPage() {
                 : "-"}
             </div>
             <div><span className="font-medium">Lokasi:</span> {permit.lokasi}</div>
+            <div><span className="font-medium">Lead/Supervisor:</span> {permit.lead_supervisor || "-"}</div>
             <div className="col-span-2"><span className="font-medium">Deskripsi:</span> {permit.deskripsi_pekerjaan}</div>
             <div><span className="font-medium">Durasi:</span> {permit.durasi || "-"}</div>
+            <div><span className="font-medium">Reference WO:</span> {permit.referensi_wo || "-"}</div>
+            <div><span className="font-medium">Equipment ID:</span> {permit.referensi_peralatan || "-"}</div>
             <div><span className="font-medium">PA:</span> {permit.performing_authority?.name ?? "-"}</div>
             <div><span className="font-medium">AA (dituju):</span> {permit.approval_authority?.name ?? "-"}</div>
             <div><span className="font-medium">IA (dituju):</span> {permit.issuing_authority?.name ?? "-"}</div>
@@ -681,35 +685,40 @@ export default function PermitDetailPage() {
           <div className="bg-white rounded-xl shadow p-6 space-y-3">
             <h2 className="font-semibold text-slate-800">Persetujuan (AA)</h2>
             <p className="text-sm text-slate-500">
-              Tetapkan PSB (Life Saving Rules) untuk <strong>setiap</strong> jenis izin yang tercakup:
+              Tetapkan PSB (Life Saving Rules) untuk izin ini
+              {jenisIzin.length > 1 && (
+                <>
+                  {" "}— berlaku untuk semua jenis izin yang tercakup (
+                  {jenisIzin.map((t) => t.kode).join(" + ")})
+                </>
+              )}
+              :
             </p>
 
-            <div className="space-y-4 max-h-96 overflow-auto">
-              {jenisIzin.map((t) => {
-                const jml = Object.values(selectedPsb[t.id] || {}).filter(Boolean).length;
-                return (
-                  <div key={t.id} className="border border-slate-200 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-semibold text-slate-800">
-                        {t.kode} — {t.nama}
-                      </h3>
-                      <span className={`text-xs px-2 py-0.5 rounded ${jml > 0 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                        {jml > 0 ? `${jml} PSB dipilih` : "belum diisi"}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                      {psbTypes.map((p) => (
-                        <label key={p.id} className="flex items-center gap-2 text-sm text-slate-600">
-                          <input type="checkbox" className="accent-emerald-600"
-                            checked={!!selectedPsb[t.id]?.[p.id]}
-                            onChange={() => togglePsb(t.id, p.id)} />
-                          {p.kode} — {p.nama}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="border border-slate-200 rounded-lg p-3 max-h-96 overflow-auto">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-slate-800">
+                  {jenisIzin.map((t) => t.kode).join(" + ")}
+                </h3>
+                {(() => {
+                  const jml = Object.values(selectedPsb).filter(Boolean).length;
+                  return (
+                    <span className={`text-xs px-2 py-0.5 rounded ${jml > 0 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                      {jml > 0 ? `${jml} PSB dipilih` : "belum diisi"}
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                {psbTypes.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 text-sm text-slate-600">
+                    <input type="checkbox" className="accent-emerald-600"
+                      checked={!!selectedPsb[p.id]}
+                      onChange={() => togglePsb(p.id)} />
+                    {p.kode} — {p.nama}
+                  </label>
+                ))}
+              </div>
             </div>
             <div className="flex gap-2 pt-2">
               <Button onClick={doApprove} busy={busy}>
@@ -830,9 +839,9 @@ export default function PermitDetailPage() {
           </Section>
         )}
 
-        {/* STEP 27 — Bagian 5: Penetapan gas + hasil uji gas (IA) — hanya HWP/CWP (digabung) */}
+        {/* STEP 27 — Bagian 5: Penetapan gas + hasil uji gas AWAL (IA) — hanya HWP/CWP (digabung) */}
         {S === "menunggu_penerbitan" && hasRole("IA") && butuhReferensi && (
-          <Section title="Bagian 5 — Pengujian Kadar Gas (IA)" icon={FlaskConical} terisi={!!permit.gas_ditetapkan_at}>
+          <Section title="Bagian 5 — Pengujian Kadar Gas — Awal (IA)" icon={FlaskConical} terisi={!!permit.gas_ditetapkan_at}>
             <div className="space-y-4">
               <GasRequirementForm
                 awal={permit}
@@ -840,9 +849,10 @@ export default function PermitDetailPage() {
                 onSubmit={(payload) => run(() => storeGasRequirement(id, payload), "Bagian 5 tersimpan.")}
               />
               <div className="border-t border-slate-100 pt-4">
+                <p className="text-sm text-slate-500 mb-3">Uji gas sebelum izin diterbitkan. Pengujian lanjutan bisa diisi lagi setelah izin aktif.</p>
                 <GasResultForm
                   busy={busy}
-                  onSubmit={(payload) => run(() => addGasTest(id, payload), "Hasil uji gas tersimpan.")}
+                  onSubmit={(payload) => run(() => addGasTest(id, { ...payload, fase: "awal" }), "Hasil uji gas tersimpan.")}
                 />
               </div>
             </div>
@@ -944,6 +954,19 @@ export default function PermitDetailPage() {
         {S === "aktif" && isCSE && hasRole("IA") && (
           <Section title="Pengujian Kadar Gas — Lanjutan (Bagian 4 — CSE)" icon={FlaskConical}>
             <p className="text-sm text-slate-500 mb-3">Pengujian ulang selama pekerjaan berlangsung. Waktu dicatat otomatis; tambah setiap kali melakukan pengujian.</p>
+            <GasResultForm
+              busy={busy}
+              onSubmit={(payload) => run(() => addGasTest(id, { ...payload, fase: "lanjutan" }), "Pengujian gas lanjutan tersimpan.")}
+            />
+          </Section>
+        )}
+
+        {/* HWP/CWP — Pengujian Kadar Gas LANJUTAN (saat izin aktif, sesudah terbit &
+            diterima PA), oleh IA, bisa berkali-kali. PA otomatis mendapat notifikasi
+            tiap kali IA menambah hasil uji gas baru selama izin aktif. */}
+        {S === "aktif" && butuhReferensi && hasRole("IA") && (
+          <Section title="Bagian 5 — Pengujian Kadar Gas — Lanjutan (IA)" icon={FlaskConical}>
+            <p className="text-sm text-slate-500 mb-3">Pengujian ulang selama pekerjaan berlangsung. PA akan mendapat notifikasi setiap kali hasil baru dicatat.</p>
             <GasResultForm
               busy={busy}
               onSubmit={(payload) => run(() => addGasTest(id, { ...payload, fase: "lanjutan" }), "Pengujian gas lanjutan tersimpan.")}

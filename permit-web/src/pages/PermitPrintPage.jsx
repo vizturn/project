@@ -123,8 +123,9 @@ export default function PermitPrintPage() {
           <div className="ptw-cell"><span className="ptw-cell-label">Diminta Oleh (PA)</span><span className="ptw-cell-value">{permit.performing_authority?.name ?? "-"}</span></div>
           <div className="ptw-cell"><span className="ptw-cell-label">Approval Authority</span><span className="ptw-cell-value">{permit.approval_authority?.name ?? "-"}</span></div>
           <div className="ptw-cell"><span className="ptw-cell-label">Lokasi / Fasilitas</span><span className="ptw-cell-value">{permit.lokasi ?? "-"}</span></div>
-          <div className="ptw-cell"><span className="ptw-cell-label">Equipment ID</span><span className="ptw-cell-value">{permit.equipment?.nama ?? permit.equipment?.kode ?? "-"}</span></div>
-          <div className="ptw-cell"><span className="ptw-cell-label">Reference WO</span><span className="ptw-cell-value">{permit.work_order?.wo_number ?? "-"}</span></div>
+          <div className="ptw-cell"><span className="ptw-cell-label">Lead/Supervisor</span><span className="ptw-cell-value">{permit.lead_supervisor ?? "-"}</span></div>
+          <div className="ptw-cell"><span className="ptw-cell-label">Equipment ID</span><span className="ptw-cell-value">{permit.referensi_peralatan ?? "-"}</span></div>
+          <div className="ptw-cell"><span className="ptw-cell-label">Reference WO</span><span className="ptw-cell-value">{permit.referensi_wo ?? "-"}</span></div>
           <div className="ptw-cell" style={{ gridColumn: "span 2" }}><span className="ptw-cell-label">Deskripsi Pekerjaan</span><span className="ptw-cell-value">{permit.deskripsi_pekerjaan ?? "-"}</span></div>
           <div className="ptw-cell"><span className="ptw-cell-label">Durasi</span><span className="ptw-cell-value">{permit.durasi ?? "-"}</span></div>
         </div>

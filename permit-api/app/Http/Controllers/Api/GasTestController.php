@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\HasPermitNotifications;
 use App\Http\Requests\StoreGasTestRequest;
 use App\Models\AuditLog;
 use App\Models\GasTest;
@@ -11,6 +12,8 @@ use Illuminate\Http\Request;
 
 class GasTestController extends Controller
 {
+    use HasPermitNotifications;
+
     public function index(Permit $permit)
     {
         return response()->json([
@@ -63,6 +66,17 @@ class GasTestController extends Controller
             'data_baru'  => ['permit_id' => $permit->id],
             'logged_at'  => now(),
         ]);
+
+        // PA tetap dapat update saat IA/AGT menambah hasil uji gas SETELAH izin
+        // diterbitkan & diterima (status aktif) — supaya PA yang sedang di
+        // lapangan tahu ada pengetesan ulang tanpa harus buka aplikasi terus.
+        if ($permit->status === 'aktif') {
+            $this->notif(
+                $permit->performing_authority_id,
+                $permit->id,
+                "Hasil uji gas baru dicatat untuk izin {$permit->nomor_izin} (izin sedang aktif)."
+            );
+        }
 
         return response()->json([
             'message' => 'Hasil uji gas tercatat.',
