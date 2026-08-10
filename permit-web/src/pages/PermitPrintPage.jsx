@@ -4,16 +4,65 @@ import { getPermit } from "../services/permitService";
 import { toast } from "sonner";
 
 /**
- * Lembar cetak PTW — replikasi formulir manual EMP untuk rekap fisik.
- * Read-only, menampilkan data izin nyata. Dipakai untuk izin yang sudah
- * terbit (aktif/selesai/closed). Semua role boleh mencetak.
+ * Lembar cetak PTW — replikasi formulir manual EMP (persis layout & warna).
+ * Read-only, data izin nyata. Untuk izin terbit (aktif/selesai/closed).
  *
- * Teknis: HTML + CSS print (@media print). Pengguna menekan tombol "Cetak"
- * lalu Save as PDF / print dari dialog browser.
+ * Template per JENIS (warna & judul berbeda):
+ *   HWP  → merah marun   (EMP-SHE-FOM-00.016) — "Pekerjaan Panas"
+ *   CWP  → biru navy      (EMP-SHE-FOM-00.017) — "Pekerjaan Dingin"
+ *   CSE  → coklat/oranye  (EMP-SHE-FOM-00.018) — "Confined Space Entry"
+ *   WAH  → abu-abu gelap  (EMP-SHE-FOM-00.023) — "Work at Height"
  *
- * Catatan: template per JENIS izin. Tahap ini fokus HWP/CWP (FOM-00.016);
- * CSE & WAH menyusul.
+ * Tahap ini: HWP/CWP (Bagian 1-11 lengkap seperti manual). CSE & WAH menyusul.
+ * TTD = digital (nama + timestamp) bila ada data; kolom kosong bila belum ada.
  */
+
+// Konfigurasi tema per jenis izin.
+const TEMA = {
+  HWP: { warna: "#7a1f2b", judul: "Permit to Work (PTW)", sub: "Pekerjaan Panas – berpotensi percikan api", fom: "EMP-SHE-FOM-00.016" },
+  CWP: { warna: "#1f3a5f", judul: "Permit to Work (PTW)", sub: "Pekerjaan Dingin – tanpa sumber api dan listrik", fom: "EMP-SHE-FOM-00.017" },
+  CSE: { warna: "#7a3b1f", judul: "Confined Space Entry Permit", sub: "Hanya untuk masuk dan melakukan inspeksi", fom: "EMP-SHE-FOM-00.018" },
+  WAH: { warna: "#3f3f46", judul: "Work at Height Permit (WAH)", sub: "Untuk akses ke lokasi kerja di ketinggian 1,8 m (6 feet) atau lebih", fom: "EMP-SHE-FOM-00.023" },
+};
+
+// Daftar PSB & bahaya PER JENIS (sesuai form manual masing-masing).
+// HWP (FOM-00.016) & CWP (FOM-00.017) punya sedikit perbedaan item.
+const PSB_PER_JENIS = {
+  HWP: [
+    ["PSB-1", "Memasuki Ruang Terbatas"], ["PSB-2", "Pembukaan Isolasi"], ["PSB-3", "Berkendara (mengemudi)"],
+    ["PSB-4", "Isolasi Energi"], ["PSB-6", "Pekerjaan Panas"], ["PSB-7", "Sistem Listrik Beraliran / Hidup"],
+    ["PSB-8", "Angkutan Orang"], ["PSB-9", "Pengangkatan Mekanis"], ["PSB-10", "Penanganan Tubular"],
+    ["PSB-11", "Bekerja di sekitar Peralatan Bergerak"], ["PSB-12", "Bekerja di Dekat Air"], ["PSB-13", "Bekerja di Ketinggian"],
+  ],
+  CWP: [
+    ["PSB-1", "Memasuki Ruang Terbatas"], ["PSB-2", "Pembukaan Isolasi"], ["PSB-4", "Isolasi Energi"],
+    ["PSB-5", "Penggalian"], ["PSB-6", "Pekerjaan Panas"], ["PSB-8", "Angkutan Orang"],
+    ["PSB-9", "Pengangkatan Mekanis"], ["PSB-10", "Penanganan Tubular"], ["PSB-11", "Bekerja di sekitar Peralatan Bergerak"],
+    ["PSB-12", "Bekerja di Dekat Air"], ["PSB-13", "Bekerja di Ketinggian"],
+  ],
+};
+
+const BAHAYA_PER_JENIS = {
+  HWP: [
+    "Confined Space/ruang terbatas", "Akses keluar/masuk yang sulit", "Cuaca buruk",
+    "Hot surface/permukaan panas", "Bahan berbahaya (chemicals, explosives)", "Vibration/getaran",
+    "SIMOPS", "Manual Handling", "Bekerja di luar pembatas",
+    "Benda melenting (proyektil)", "Dropped object/benda terjatuh", "Gas beracun (H2S, CO2)",
+    "Noise/kebisingan", "Perkakas (hand-tools, power tools)", "Tergelincir, terpeleset, tersandung",
+    "Bukaan tanpa pelindung", "Tekanan tinggi", "Heat stress/pajanan panas",
+    "Flammables/bahan-bahan mudah terbakar", "Spark/percikan bunga api", "Benda bergerak",
+  ],
+  CWP: [
+    "Confined Space/ruang terbatas", "Akses keluar/masuk yang sulit", "Cuaca buruk",
+    "Hot surface/permukaan panas", "Bahan berbahaya (chemicals, explosives)", "Vibration/getaran",
+    "SIMOPS", "Manual Handling", "Bekerja di luar pembatas",
+    "Benda melenting (proyektil)", "Dropped object/benda terjatuh", "Gas beracun (H2S, CO2)",
+    "Noise/kebisingan", "Perkakas (hand-tools, power tools)", "Tergelincir, terpeleset, tersandung",
+    "Bukaan tanpa pelindung", "Tekanan tinggi", "Heat stress/pajanan panas",
+    "Rigging, Lifting", "Benda tajam/abrasif", "Benda bergerak",
+  ],
+};
+
 export default function PermitPrintPage() {
   const { id } = useParams();
   const [permit, setPermit] = useState(null);
@@ -29,198 +78,327 @@ export default function PermitPrintPage() {
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: "#666" }}>Memuat...</div>;
   if (!permit) return null;
 
-  const jenis = permit.permit_types?.length
-    ? permit.permit_types
-    : permit.permit_type ? [permit.permit_type] : [];
-  const kode = jenis.map((t) => t.kode).join(", ");
-  const fmt = (d) => (d ? new Date(d).toLocaleString("id-ID") : "");
+  const jenis = permit.permit_types?.length ? permit.permit_types : permit.permit_type ? [permit.permit_type] : [];
+  const kodeUtama = jenis.find((t) => TEMA[t.kode])?.kode || "HWP";
+  const tema = TEMA[kodeUtama];
+  const daftarPsb = PSB_PER_JENIS[kodeUtama] || PSB_PER_JENIS.HWP;
+  const daftarBahaya = BAHAYA_PER_JENIS[kodeUtama] || BAHAYA_PER_JENIS.HWP;
+
+  const fmt = (d) => (d ? new Date(d).toLocaleString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
   const fmtTgl = (d) => (d ? new Date(d).toLocaleDateString("id-ID") : "");
+  const fmtJam = (d) => (d ? new Date(d).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "");
 
-  // Daftar 21 bahaya standar (nomor + label), untuk menandai yang dipilih.
-  const semuaBahaya = permit.hazards || [];
-  const bahayaDipilih = new Set(semuaBahaya.map((h) => Number(h.no_bahaya)));
-
-  // PSB yang ditetapkan
+  const bahayaDipilih = new Set((permit.hazards || []).map((h) => Number(h.no_bahaya)));
   const psbDipilih = new Set((permit.psb_forms || []).map((f) => f.psb_type?.kode).filter(Boolean));
+  const risiko = permit.tingkat_risiko;
+
+  // Bagian 9 & 10: ambil waktu dari riwayat status (cara b).
+  const histSelesai = (permit.status_histories || []).find((h) => h.status === "selesai");
+  const histClosed = (permit.status_histories || []).find((h) => h.status === "closed");
+
+  // TTD digital: tampilkan nama + timestamp bila ada.
+  const ttdDigital = (nama, waktu) =>
+    nama ? (
+      <>
+        <div style={{ fontWeight: 700 }}>{nama}</div>
+        {waktu && <div style={{ fontSize: 8, color: "#555" }}>Ditandatangani digital · {fmt(waktu)}</div>}
+      </>
+    ) : "";
 
   return (
-    <div className="ptw-print-root">
+    <div className="ptw-root">
       <style>{`
-        .ptw-print-root { background: #f3f3f3; min-height: 100vh; padding: 24px; }
-        .ptw-toolbar { max-width: 800px; margin: 0 auto 16px; display: flex; gap: 8px; justify-content: flex-end; }
-        .ptw-btn { padding: 8px 16px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
-        .ptw-btn-print { background: #53b74a; color: #fff; }
-        .ptw-btn-back { background: #e2e2e2; color: #333; }
-        .ptw-sheet {
-          max-width: 800px; margin: 0 auto; background: #fff; padding: 32px;
-          font-family: "Work Sans", Arial, sans-serif; color: #1a1c1c; font-size: 11px;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-        }
-        .ptw-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #9c3f00; padding-bottom: 10px; margin-bottom: 12px; }
-        .ptw-title { color: #9c3f00; font-size: 20px; font-weight: 900; margin: 0; }
-        .ptw-subtitle { font-size: 11px; color: #555; margin: 2px 0 0; text-transform: uppercase; letter-spacing: 0.5px; }
-        .ptw-logo { font-size: 26px; font-weight: 900; color: #9c3f00; font-style: italic; }
-        .ptw-nomor-box { display: flex; align-items: center; gap: 8px; }
-        .ptw-nomor-label { font-size: 10px; color: #555; }
-        .ptw-nomor { border: 1.5px solid #333; padding: 4px 12px; font-size: 16px; font-weight: 700; letter-spacing: 1px; }
-        .ptw-fom { font-size: 9px; color: #888; text-align: right; margin-top: 2px; }
-        .ptw-sec-head { background: #9c3f00; color: #fff; font-weight: 700; font-size: 12px; padding: 5px 10px; margin: 12px 0 0; }
-        .ptw-sec-head span { font-weight: 400; font-size: 10px; opacity: 0.9; }
-        .ptw-grid { display: grid; border: 1px solid #ccc; border-top: none; }
-        .ptw-cell { border-right: 1px solid #ccc; border-bottom: 1px solid #ccc; padding: 6px 8px; }
-        .ptw-cell:last-child { border-right: none; }
-        .ptw-cell-label { font-size: 9px; color: #666; text-transform: uppercase; display: block; margin-bottom: 3px; }
-        .ptw-cell-value { font-size: 11px; min-height: 16px; }
-        .ptw-check-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 12px; padding: 8px 10px; border: 1px solid #ccc; border-top: none; }
-        .ptw-check { display: flex; align-items: center; gap: 5px; font-size: 10px; }
-        .ptw-box { width: 12px; height: 12px; border: 1.2px solid #666; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
-        .ptw-box.checked { background: #9c3f00; color: #fff; border-color: #9c3f00; }
-        .ptw-box.checked::after { content: "✓"; }
-        .ptw-sign-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #ccc; border-top: none; }
-        .ptw-sign-cell { border-right: 1px solid #ccc; padding: 8px; }
-        .ptw-sign-cell:last-child { border-right: none; }
-        .ptw-sign-statement { font-size: 10px; color: #444; font-style: italic; margin-bottom: 8px; min-height: 40px; }
-        .ptw-sign-box { border: 1px dashed #aaa; padding: 6px; font-size: 10px; }
-        .ptw-sign-name { font-weight: 700; }
-        .ptw-sign-meta { color: #666; font-size: 9px; margin-top: 2px; }
-        .ptw-footer { margin-top: 16px; font-size: 8px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 6px; }
+        .ptw-root { --tema: ${tema.warna}; background:#eee; min-height:100vh; padding:20px; }
+        .ptw-tb { max-width:860px; margin:0 auto 14px; display:flex; gap:8px; justify-content:flex-end; }
+        .ptw-b { padding:8px 16px; border-radius:8px; border:none; font-size:14px; font-weight:600; cursor:pointer; }
+        .ptw-b-p { background:var(--tema); color:#fff; }
+        .ptw-b-k { background:#ddd; color:#333; }
+        .sheet { max-width:860px; margin:0 auto; background:#fff; padding:26px 30px; font-family:Arial,Helvetica,sans-serif; color:#111; font-size:10.5px; box-shadow:0 1px 4px rgba(0,0,0,.15); }
+        .hd { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+        .hd-title { font-size:19px; font-weight:800; color:#111; margin:0; }
+        .hd-sub { font-size:11px; color:#333; margin:1px 0 0; }
+        .hd-logo { font-size:30px; font-weight:800; color:var(--tema); font-style:italic; line-height:1; }
+        .hd-nomor { display:flex; align-items:center; gap:6px; margin-top:2px; }
+        .hd-nomor-l { font-size:11px; color:#333; }
+        .hd-nomor-b { border:1.5px solid #333; padding:2px 14px; font-size:15px; font-weight:700; letter-spacing:1px; min-width:120px; }
+        .fom { font-size:8px; color:#666; text-align:right; }
+        .sec { background:var(--tema); color:#fff; font-weight:700; font-size:11.5px; padding:3px 8px; margin-top:8px; }
+        .sec small { font-weight:400; font-size:9.5px; opacity:.92; }
+        .tbl { width:100%; border-collapse:collapse; border:1px solid var(--tema); }
+        .tbl td, .tbl th { border:1px solid #bbb; padding:4px 6px; vertical-align:top; font-size:10px; }
+        .lbl { font-size:8px; color:#555; text-transform:uppercase; display:block; margin-bottom:2px; letter-spacing:.3px; }
+        .val { font-size:10.5px; min-height:14px; }
+        .chk-wrap { border:1px solid var(--tema); border-top:none; padding:6px 8px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:3px 14px; }
+        .chk { display:flex; align-items:flex-start; gap:5px; font-size:9.5px; line-height:1.25; }
+        .box { width:11px; height:11px; border:1.2px solid #444; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:9px; margin-top:1px; }
+        .box.on { background:var(--tema); border-color:var(--tema); color:#fff; }
+        .box.on::after { content:"✓"; }
+        .sign-td { height:44px; }
+        .foot { margin-top:12px; font-size:8px; color:#666; display:flex; justify-content:space-between; border-top:1px solid #ddd; padding-top:5px; }
+        .note { font-size:8px; color:#888; text-align:center; margin-top:8px; }
         @media print {
-          .ptw-print-root { background: #fff; padding: 0; }
-          .ptw-toolbar { display: none; }
-          .ptw-sheet { box-shadow: none; max-width: 100%; padding: 12mm; }
-          @page { size: A4; margin: 8mm; }
+          .ptw-root { background:#fff; padding:0; }
+          .ptw-tb { display:none; }
+          .sheet { box-shadow:none; max-width:100%; padding:8mm; }
+          @page { size:A4; margin:6mm; }
+          .box.on { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+          .sec { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
         }
       `}</style>
 
-      <div className="ptw-toolbar">
-        <button className="ptw-btn ptw-btn-back" onClick={() => window.history.back()}>← Kembali</button>
-        <button className="ptw-btn ptw-btn-print" onClick={() => window.print()}>🖨 Cetak / Simpan PDF</button>
+      <div className="ptw-tb">
+        <button className="ptw-b ptw-b-k" onClick={() => window.history.back()}>← Kembali</button>
+        <button className="ptw-b ptw-b-p" onClick={() => window.print()}>🖨 Cetak / Simpan PDF</button>
       </div>
 
-      <div className="ptw-sheet">
-        {/* Header */}
-        <div className="ptw-header">
+      <div className="sheet">
+        {/* HEADER */}
+        <div className="hd">
           <div>
-            <h1 className="ptw-title">PERMIT TO WORK (PTW)</h1>
-            <p className="ptw-subtitle">
-              {kode.includes("HWP") ? "Pekerjaan Panas — Berpotensi Percikan Api" : "Pekerjaan Dingin"}
-            </p>
+            <h1 className="hd-title">{tema.judul}</h1>
+            <p className="hd-sub">{tema.sub}</p>
+            <div className="hd-nomor">
+              <span className="hd-nomor-l">Nomor PTW</span>
+              <span className="hd-nomor-b">{permit.nomor_izin}</span>
+            </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div className="ptw-nomor-box" style={{ justifyContent: "flex-end" }}>
-              <span className="ptw-nomor-label">Nomor PTW</span>
-              <span className="ptw-nomor">{permit.nomor_izin}</span>
-              <span className="ptw-logo">emp</span>
-            </div>
-            <div className="ptw-fom">EMP-SHE-FOM-00.016</div>
+            <div className="hd-logo">emp</div>
+            <div className="fom">{tema.fom}</div>
           </div>
         </div>
 
-        {/* Bagian 1 — Uraian Pekerjaan */}
-        <div className="ptw-sec-head">1. Uraian Pekerjaan <span>(dilengkapi oleh Performing Authority — PA)</span></div>
-        <div className="ptw-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-          <div className="ptw-cell"><span className="ptw-cell-label">Tanggal Diminta</span><span className="ptw-cell-value">{fmtTgl(permit.created_at)}</span></div>
-          <div className="ptw-cell"><span className="ptw-cell-label">Diminta Oleh (PA)</span><span className="ptw-cell-value">{permit.performing_authority?.name ?? "-"}</span></div>
-          <div className="ptw-cell"><span className="ptw-cell-label">Approval Authority</span><span className="ptw-cell-value">{permit.approval_authority?.name ?? "-"}</span></div>
-          <div className="ptw-cell"><span className="ptw-cell-label">Lokasi / Fasilitas</span><span className="ptw-cell-value">{permit.lokasi ?? "-"}</span></div>
-          <div className="ptw-cell"><span className="ptw-cell-label">Equipment ID</span><span className="ptw-cell-value">{permit.equipment?.nama ?? permit.equipment?.kode ?? "-"}</span></div>
-          <div className="ptw-cell"><span className="ptw-cell-label">Reference WO</span><span className="ptw-cell-value">{permit.work_order?.wo_number ?? "-"}</span></div>
-          <div className="ptw-cell" style={{ gridColumn: "span 2" }}><span className="ptw-cell-label">Deskripsi Pekerjaan</span><span className="ptw-cell-value">{permit.deskripsi_pekerjaan ?? "-"}</span></div>
-          <div className="ptw-cell"><span className="ptw-cell-label">Durasi</span><span className="ptw-cell-value">{permit.durasi ? `${permit.durasi} jam` : "-"}</span></div>
-        </div>
+        {/* 1. URAIAN PEKERJAAN */}
+        <div className="sec">1. Uraian Pekerjaan <small>(dilengkapi oleh performing authority - PA)</small></div>
+        <table className="tbl">
+          <tbody>
+            <tr>
+              <td style={{ width: "33%" }}><span className="lbl">Tanggal diminta</span><span className="val">{fmtTgl(permit.created_at)}</span></td>
+              <td style={{ width: "34%" }}><span className="lbl">Diminta oleh (nama & ttd)</span><span className="val">{permit.performing_authority?.name ?? ""}</span></td>
+              <td><span className="lbl">Lead / Supervisor (nama & ttd)</span><span className="val"></span></td>
+            </tr>
+            <tr>
+              <td><span className="lbl">Lokasi Pekerjaan</span><span className="val">{permit.lokasi ?? ""}</span></td>
+              <td><span className="lbl">Equipment ID</span><span className="val"></span></td>
+              <td><span className="lbl">Lamanya pengerjaan (estimasi)</span><span className="val">{permit.durasi ? `${permit.durasi} jam` : ""}</span></td>
+            </tr>
+            <tr>
+              <td colSpan={2}><span className="lbl">Deskripsi pekerjaan</span><span className="val">{permit.deskripsi_pekerjaan ?? ""}</span></td>
+              <td><span className="lbl">Approval Authority</span><span className="val">{permit.approval_authority?.name ?? ""}</span>
+                <div style={{ fontSize: 8, color: "#666", marginTop: 4 }}>PTW disetujui. Pekerjaan dapat dimulai setelah penerbitan oleh IA</div></td>
+            </tr>
+            <tr>
+              <td><span className="lbl">Reference WO</span><span className="val"></span></td>
+              <td colSpan={2}><span className="lbl">Reference PTW</span><span className="val"></span></td>
+            </tr>
+          </tbody>
+        </table>
 
-        {/* Bagian 2 — PSB */}
-        <div className="ptw-sec-head">2. Formulir PSB (Life-Saving Rules) <span>(ditetapkan oleh AA, dilaksanakan oleh PA)</span></div>
-        <div className="ptw-check-row">
-          {[
-            ["PSB-1", "Memasuki Ruang Terbatas"], ["PSB-2", "Pembukaan Isolasi"], ["PSB-3", "Berkendara (mengemudi)"],
-            ["PSB-4", "Isolasi Energi"], ["PSB-6", "Pekerjaan Panas"], ["PSB-7", "Sistem Listrik Beraliran / Hidup"],
-            ["PSB-8", "Angkutan Orang"], ["PSB-9", "Pengangkatan Mekanis"], ["PSB-10", "Penanganan Tubular"],
-            ["PSB-11", "Bekerja di sekitar Peralatan Bergerak"], ["PSB-12", "Bekerja di Dekat Air"], ["PSB-13", "Bekerja di Ketinggian"],
-          ].map(([k, label]) => (
-            <span className="ptw-check" key={k}>
-              <span className={"ptw-box" + (psbDipilih.has(k) ? " checked" : "")} />
-              <span><b>{k}</b> {label}</span>
-            </span>
+        {/* 2. PSB */}
+        <div className="sec">2. Formulir PSB (Life-Saving Rules) <small>(ditetapkan oleh Approval Authority - AA, dilaksanakan oleh PA)</small></div>
+        <div className="chk-wrap">
+          {daftarPsb.map(([k, label]) => (
+            <span className="chk" key={k}><span className={"box" + (psbDipilih.has(k) ? " on" : "")} /><span><b>{k}</b> &nbsp;{label}</span></span>
           ))}
         </div>
 
-        {/* Bagian 3 — Identifikasi Bahaya */}
-        <div className="ptw-sec-head">3. Identifikasi Bahaya dan Pengendalian <span>(dilengkapi oleh PA, diperiksa IA)</span></div>
-        <div className="ptw-check-row">
-          {[
-            "Confined Space/ruang terbatas", "Akses keluar/masuk yang sulit", "Cuaca buruk",
-            "Hot surface/permukaan panas", "Bahan berbahaya (chemicals)", "Vibration/getaran",
-            "SIMOPS", "Manual Handling", "Bekerja di luar pembatas",
-            "Benda melenting (proyektil)", "Dropped object/benda terjatuh", "Gas beracun (H2S, CO2)",
-            "Noise/kebisingan", "Perkakas (hand-tools, power tools)", "Tergelincir, terpeleset, tersandung",
-            "Bukaan tanpa pelindung", "Tekanan tinggi", "Heat stress/pajanan panas",
-            "Flammables/bahan mudah terbakar", "Spark/percikan bunga api", "Benda bergerak",
-          ].map((label, i) => {
+        {/* 3. IDENTIFIKASI BAHAYA */}
+        <div className="sec">3. Identifikasi Bahaya dan Pengendalian <small>(dilengkapi oleh PA dan diperiksa Issuing Authority - IA)</small></div>
+        <div style={{ border: "1px solid var(--tema)", borderTop: "none", padding: "4px 8px 0", fontSize: 9, fontWeight: 700 }}>Bahaya-bahaya (tandai yang sesuai)</div>
+        <div className="chk-wrap" style={{ borderTop: "none" }}>
+          {daftarBahaya.map((label, i) => {
             const no = i + 1;
-            return (
-              <span className="ptw-check" key={no}>
-                <span className={"ptw-box" + (bahayaDipilih.has(no) ? " checked" : "")} />
-                <span>{String(no).padStart(2, "0")} {label}</span>
-              </span>
-            );
+            return <span className="chk" key={no}><span className={"box" + (bahayaDipilih.has(no) ? " on" : "")} /><span>{String(no).padStart(2, "0")} &nbsp;{label}</span></span>;
           })}
         </div>
-        <div className="ptw-grid" style={{ gridTemplateColumns: "2fr 1fr 1fr" }}>
-          <div className="ptw-cell"><span className="ptw-cell-label">Bahaya Lainnya</span><span className="ptw-cell-value">{permit.bahaya_lainnya ?? "-"}</span></div>
-          <div className="ptw-cell"><span className="ptw-cell-label">Nomor JSA</span><span className="ptw-cell-value">{permit.nomor_jsa ?? "-"}</span></div>
-          <div className="ptw-cell"><span className="ptw-cell-label">Tingkat Risiko</span><span className="ptw-cell-value">{permit.tingkat_risiko ? permit.tingkat_risiko.charAt(0).toUpperCase() + permit.tingkat_risiko.slice(1) : "-"}</span></div>
-        </div>
+        <table className="tbl" style={{ borderTop: "none" }}>
+          <tbody>
+            <tr><td colSpan={3}><span className="lbl">Uraikan bahaya-bahaya lainnya</span><span className="val">{permit.bahaya_lainnya ?? ""}</span></td></tr>
+            <tr>
+              <td style={{ width: "40%" }}><span className="lbl">Nomor Job Safety Analysis (JSA)</span><span className="val">{permit.nomor_jsa ?? ""}</span></td>
+              <td colSpan={2}>
+                <span className="lbl">Tingkat risiko keseluruhan berdasarkan JSA</span>
+                <span style={{ display: "inline-flex", gap: 16 }}>
+                  <span className="chk"><span className={"box" + (risiko === "tinggi" ? " on" : "")} /> Tinggi</span>
+                  <span className="chk"><span className={"box" + (risiko === "sedang" ? " on" : "")} /> Sedang</span>
+                  <span className="chk"><span className={"box" + (risiko === "rendah" ? " on" : "")} /> Rendah</span>
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-        {/* Bagian 5 — Pengujian Kadar Gas */}
-        <div className="ptw-sec-head">5. Pengujian Kadar Gas <span>(dilaksanakan oleh IA atau AGT)</span></div>
-        <div className="ptw-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
-          <div className="ptw-cell" style={{ background: "#f5f5f5", fontWeight: 700 }}><span className="ptw-cell-value">Waktu</span></div>
-          <div className="ptw-cell" style={{ background: "#f5f5f5", fontWeight: 700 }}><span className="ptw-cell-value">O₂ %</span></div>
-          <div className="ptw-cell" style={{ background: "#f5f5f5", fontWeight: 700 }}><span className="ptw-cell-value">%LEL</span></div>
-          <div className="ptw-cell" style={{ background: "#f5f5f5", fontWeight: 700 }}><span className="ptw-cell-value">Petugas</span></div>
-          {(permit.gas_tests || []).length === 0 ? (
-            <div className="ptw-cell" style={{ gridColumn: "span 4", textAlign: "center", color: "#999" }}><span className="ptw-cell-value">Belum ada pengujian gas</span></div>
-          ) : (
-            permit.gas_tests.map((g) => (
-              <div key={g.id} style={{ display: "contents" }}>
-                <div className="ptw-cell"><span className="ptw-cell-value">{g.tanggal} {g.jam}</span></div>
-                <div className="ptw-cell"><span className="ptw-cell-value">{g.oksigen_persen ?? "-"}</span></div>
-                <div className="ptw-cell"><span className="ptw-cell-value">{g.lel_persen ?? "-"}</span></div>
-                <div className="ptw-cell"><span className="ptw-cell-value">{g.agt?.name ?? "-"}</span></div>
-              </div>
-            ))
-          )}
-        </div>
+        {/* 4. REFERENSI PENDUKUNG */}
+        <div className="sec">4. Referensi Pendukung <small>(dilengkapi oleh IA)</small></div>
+        <table className="tbl">
+          <tbody>
+            <tr>
+              <td colSpan={2} style={{ textAlign: "center", fontWeight: 700, background: "#f3f3f3" }}>Permit Lainnya <span style={{ fontWeight: 400, fontSize: 8 }}>(tulis nomor)</span></td>
+              <td colSpan={3} style={{ textAlign: "center", fontWeight: 700, background: "#f3f3f3" }}>Certificates <span style={{ fontWeight: 400, fontSize: 8 }}>(tulis nomor)</span></td>
+            </tr>
+            <tr style={{ fontSize: 8, color: "#555" }}>
+              <td style={{ width: "20%" }}>Confined Space Entry</td>
+              <td style={{ width: "20%" }}>Bekerja di Ketinggian</td>
+              <td style={{ width: "20%" }}>Isolation</td>
+              <td style={{ width: "20%" }}>Scaffolding</td>
+              <td style={{ width: "20%" }}>Excavation</td>
+            </tr>
+            <tr>
+              <td><span className="val">{permit.ref_permit_cse ?? ""}</span></td>
+              <td><span className="val">{permit.ref_permit_wah ?? ""}</span></td>
+              <td><span className="val">{permit.cert_isolation_diperlukan ? (permit.cert_isolation ?? "✓") : ""}</span></td>
+              <td><span className="val">{permit.cert_scaffolding_diperlukan ? (permit.cert_scaffolding ?? "✓") : ""}</span></td>
+              <td><span className="val">{permit.cert_excavation_diperlukan ? (permit.cert_excavation ?? "✓") : ""}</span></td>
+            </tr>
+            <tr><td colSpan={5}><span className="lbl">Sistem Safety di-non-aktifkan</span><span className="val">{permit.sistem_safety_dinonaktifkan ?? ""}</span></td></tr>
+            <tr><td colSpan={5}><span className="lbl">Referensi lainnya (MSDS, Lifting Plan, Prosedur, dll)</span><span className="val">{permit.referensi_lainnya ?? ""}</span></td></tr>
+          </tbody>
+        </table>
 
-        {/* Bagian 6 & 7 — Penerbitan & Penerimaan (tanda tangan digital: nama + timestamp) */}
-        <div className="ptw-sec-head">6. Penerbitan (IA) &nbsp;&nbsp;|&nbsp;&nbsp; 7. Penerimaan PTW (PA)</div>
-        <div className="ptw-sign-grid">
-          <div className="ptw-sign-cell">
-            <div className="ptw-sign-statement">
-              Saya, IA, menyatakan bahwa semua bahaya telah diidentifikasi, semua tindakan pencegahan telah dilakukan
-              dan kondisi aman untuk melaksanakan pekerjaan.
-            </div>
-            <div className="ptw-sign-box">
-              <div className="ptw-sign-name">{permit.issuing_authority?.name ?? "-"}</div>
-              <div className="ptw-sign-meta">Ditandatangani secara digital{permit.tgl_terbit ? ` — ${fmt(permit.tgl_terbit)}` : ""}</div>
-            </div>
-          </div>
-          <div className="ptw-sign-cell">
-            <div className="ptw-sign-statement">
-              Saya, PA, telah membaca dan memahami semua kondisi dalam PTW ini. Saya menerima tanggung jawab
-              pelaksanaan kerja dan akan menghentikan pekerjaan jika kondisi berbahaya.
-            </div>
-            <div className="ptw-sign-box">
-              <div className="ptw-sign-name">{permit.performing_authority?.name ?? "-"}</div>
-              <div className="ptw-sign-meta">Ditandatangani secara digital{permit.diterima_pa_at ? ` — ${fmt(permit.diterima_pa_at)}` : ""}</div>
-            </div>
-          </div>
-        </div>
+        {/* 5. PENGUJIAN KADAR GAS */}
+        <div className="sec">5. Pengujian Kadar Gas <small>(dilaksanakan oleh IA atau Authorized Gas Tester - AGT)</small></div>
+        <table className="tbl">
+          <tbody>
+            <tr>
+              <td style={{ width: "34%", verticalAlign: "middle", fontSize: 9.5 }}>
+                <b>IA</b> menetapkan bahwa pengetesan kadar gas berikut ini harus dilaksanakan oleh petugas <b>Authorized Gas Tester (AGT)</b> dan meminta pengetesan ulang dilakukan dengan periode berikut [{permit.gas_periode_ulang ?? "……"}] dan hasilnya dicatat pada lembar gas test di belakang permit ini.
+              </td>
+              <td style={{ width: "34%", padding: 0 }}>
+                <div style={{ textAlign: "center", fontWeight: 700, padding: "3px", borderBottom: "1px solid #bbb" }}>Hasil Pengetesan Gas Awal</div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <tbody>
+                    <tr><td style={{ border: "1px solid #ccc", padding: "3px 5px" }}><span className={"box" + (permit.gas_uji_flammable ? " on" : "")} /> Flammable</td><td style={{ border: "1px solid #ccc", padding: "3px 5px", width: 40 }}></td><td style={{ border: "1px solid #ccc", padding: "3px 5px", width: 44 }}>%LEL</td></tr>
+                    <tr><td style={{ border: "1px solid #ccc", padding: "3px 5px" }}><span className={"box" + (permit.gas_uji_oksigen ? " on" : "")} /> Oksigen</td><td style={{ border: "1px solid #ccc" }}></td><td style={{ border: "1px solid #ccc", padding: "3px 5px" }}>%</td></tr>
+                    <tr><td style={{ border: "1px solid #ccc", padding: "3px 5px" }}><span className={"box" + (permit.gas_uji_beracun ? " on" : "")} /> Beracun</td><td style={{ border: "1px solid #ccc" }}></td><td style={{ border: "1px solid #ccc", padding: "3px 5px" }}>ppm</td></tr>
+                  </tbody>
+                </table>
+              </td>
+              <td style={{ verticalAlign: "middle", fontSize: 9.5, textAlign: "center" }}>
+                Saya, petugas AGT menyatakan bahwa hasil pengetesan gas masih dalam <u>batas aman</u> untuk melaksanakan pekerjaan
+              </td>
+            </tr>
+            <tr>
+              <td style={{ fontWeight: 700, textAlign: "center" }}>Authorized Gas Tester</td>
+              <td colSpan={2} style={{ padding: 0 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "center" }}>
+                  <tbody>
+                    <tr style={{ fontSize: 8, color: "#555" }}><td style={{ border: "1px solid #ccc", padding: 3 }}>Nama</td><td style={{ border: "1px solid #ccc" }}>Ttd</td><td style={{ border: "1px solid #ccc" }}>Tanggal</td><td style={{ border: "1px solid #ccc" }}>Jam</td></tr>
+                    <tr className="sign-td">
+                      <td style={{ border: "1px solid #ccc" }}>{permit.gas_tests?.[0]?.agt?.name ?? ""}</td>
+                      <td style={{ border: "1px solid #ccc" }}></td>
+                      <td style={{ border: "1px solid #ccc" }}>{permit.gas_tests?.[0]?.tanggal ?? ""}</td>
+                      <td style={{ border: "1px solid #ccc" }}>{permit.gas_tests?.[0]?.jam ?? ""}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-        <div className="ptw-footer">
-          Dokumen ini dihasilkan secara digital oleh Sistem Digital Permit SHE — EMP Bentu Limited.
-          Status saat cetak: {permit.status?.toUpperCase()} · Dicetak: {fmt(new Date().toISOString())}
+        {/* 6 & 7 PENERBITAN + PENERIMAAN */}
+        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
+          <tbody>
+            <tr>
+              <td style={{ width: "50%", padding: 0, verticalAlign: "top" }}>
+                <div className="sec" style={{ marginTop: 0 }}>6. Penerbitan <small>(dilakukan oleh IA)</small></div>
+                <div style={{ border: "1px solid var(--tema)", borderTop: "none", padding: 6, fontSize: 9, fontStyle: "italic", minHeight: 44 }}>
+                  Saya, <b>IA</b> menyatakan bahwa semua bahaya telah diidentifikasi, semua tindakan pencegahan telah dilakukan dan kondisi aman untuk melaksanakan pekerjaan yang tertuang dalam PTW ini.
+                </div>
+                <table className="tbl" style={{ borderTop: "none" }}><tbody>
+                  <tr className="sign-td"><td style={{ width: "40%" }}>{ttdDigital(permit.issuing_authority?.name, permit.tgl_terbit)}</td><td>{/* ttd */}</td><td style={{ width: "22%" }}>{fmtTgl(permit.tgl_terbit)}</td><td style={{ width: "18%" }}>{fmtJam(permit.tgl_terbit)}</td></tr>
+                  <tr style={{ fontSize: 8, color: "#555", textAlign: "center" }}><td>Nama</td><td>Tanda tangan</td><td>Tanggal</td><td>Jam</td></tr>
+                </tbody></table>
+              </td>
+              <td style={{ width: "50%", padding: "0 0 0 6px", verticalAlign: "top" }}>
+                <div className="sec" style={{ marginTop: 0 }}>7. Penerimaan PTW <small>(dilakukan oleh PA)</small></div>
+                <div style={{ border: "1px solid var(--tema)", borderTop: "none", padding: 6, fontSize: 9, fontStyle: "italic", minHeight: 44 }}>
+                  Saya, <b>PA</b> telah membaca dan memahami semua kondisi dalam PTW ini dan lampirannya. Saya menerima tanggung jawab pelaksanaan pekerjaan sesuai PTW ini.
+                </div>
+                <table className="tbl" style={{ borderTop: "none" }}><tbody>
+                  <tr className="sign-td"><td style={{ width: "40%" }}>{ttdDigital(permit.performing_authority?.name, permit.diterima_pa_at)}</td><td></td><td style={{ width: "22%" }}>{fmtTgl(permit.diterima_pa_at)}</td><td style={{ width: "18%" }}>{fmtJam(permit.diterima_pa_at)}</td></tr>
+                  <tr style={{ fontSize: 8, color: "#555", textAlign: "center" }}><td>Nama</td><td>Tanda tangan</td><td>Tanggal</td><td>Jam</td></tr>
+                </tbody></table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 8. PENGEMBALIAN & REVALIDASI */}
+        <div className="sec">8. Pengembalian dan Revalidasi <small>(dilakukan oleh PA dan IA)</small></div>
+        <table className="tbl">
+          <tbody>
+            <tr style={{ background: "#f3f3f3", fontWeight: 700, textAlign: "center" }}>
+              <td colSpan={4}>Pengembalian <span style={{ fontWeight: 400, fontSize: 8 }}>(PTW ditunda)</span></td>
+              <td colSpan={4}>Revalidasi <span style={{ fontWeight: 400, fontSize: 8 }}>(PTW diberlakukan kembali, setelah pemeriksaan oleh IA)</span></td>
+            </tr>
+            <tr style={{ fontSize: 8, color: "#555", textAlign: "center" }}>
+              <td>PA (nama & ttd)</td><td>IA (nama & ttd)</td><td>Tanggal</td><td>Jam</td>
+              <td>IA (nama & ttd)</td><td>PA (nama & ttd)</td><td>Tanggal</td><td>Jam</td>
+            </tr>
+            {(permit.revalidations || []).length === 0 ? (
+              <tr className="sign-td"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            ) : (
+              permit.revalidations.map((r) => (
+                <tr className="sign-td" key={r.id}>
+                  <td style={{ fontSize: 9 }}>{r.returned_by?.name ?? ""}</td><td></td><td>{fmtTgl(r.returned_at)}</td><td>{fmtJam(r.returned_at)}</td>
+                  <td style={{ fontSize: 9 }}>{r.revalidated_by?.name ?? ""}</td><td></td><td>{fmtTgl(r.revalidated_at)}</td><td>{fmtJam(r.revalidated_at)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        {/* 9, 10, 11 */}
+        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
+          <tbody>
+            <tr>
+              <td style={{ width: "37%", padding: 0, verticalAlign: "top" }}>
+                <div className="sec" style={{ marginTop: 0 }}>9. Penyelesaian <small>(oleh PA)</small></div>
+                <div style={{ border: "1px solid var(--tema)", borderTop: "none", padding: 5, fontSize: 8, minHeight: 30 }}>
+                  <b>PA</b> menyatakan pekerjaan telah dilaksanakan dengan baik. Pekerjaan [SELESAI / TIDAK SELESAI], area kerja ditinggalkan dalam keadaan aman dan bersih.
+                </div>
+                <table className="tbl" style={{ borderTop: "none" }}><tbody>
+                  <tr className="sign-td"><td>{histSelesai ? (permit.performing_authority?.name ?? "") : ""}</td><td></td><td>{histSelesai ? fmtTgl(histSelesai.changed_at) : ""}</td><td>{histSelesai ? fmtJam(histSelesai.changed_at) : ""}</td></tr>
+                  <tr style={{ fontSize: 7.5, color: "#555", textAlign: "center" }}><td>Nama</td><td>Ttd</td><td>Tgl</td><td>Jam</td></tr>
+                </tbody></table>
+              </td>
+              <td style={{ width: "37%", padding: "0 0 0 5px", verticalAlign: "top" }}>
+                <div className="sec" style={{ marginTop: 0 }}>10. Penutupan PTW <small>(oleh IA)</small></div>
+                <div style={{ border: "1px solid var(--tema)", borderTop: "none", padding: 5, fontSize: 8, minHeight: 30 }}>
+                  <b>IA</b> telah memeriksa pekerjaan dan menyatakan Pekerjaan [SELESAI / TIDAK SELESAI], area kerja ditinggalkan dalam keadaan aman dan bersih.
+                </div>
+                <table className="tbl" style={{ borderTop: "none" }}><tbody>
+                  <tr className="sign-td"><td>{histClosed ? (permit.issuing_authority?.name ?? "") : ""}</td><td></td><td>{histClosed ? fmtTgl(histClosed.changed_at) : ""}</td><td>{histClosed ? fmtJam(histClosed.changed_at) : ""}</td></tr>
+                  <tr style={{ fontSize: 7.5, color: "#555", textAlign: "center" }}><td>Nama</td><td>Ttd</td><td>Tgl</td><td>Jam</td></tr>
+                </tbody></table>
+              </td>
+              <td style={{ padding: "0 0 0 5px", verticalAlign: "top" }}>
+                <div className="sec" style={{ marginTop: 0 }}>11. Live Audit</div>
+                <div style={{ border: "1px solid var(--tema)", borderTop: "none", padding: 5, fontSize: 8, minHeight: 30 }}>
+                  Dilakukan oleh Supervisor atau lebih tinggi saat pekerjaan dilaksanakan.
+                </div>
+                <table className="tbl" style={{ borderTop: "none" }}><tbody>
+                  {(permit.live_audits || []).length === 0 ? (
+                    <tr className="sign-td"><td>{/* nama */}</td><td style={{ width: "30%" }}></td></tr>
+                  ) : (
+                    permit.live_audits.slice(0, 3).map((a) => (
+                      <tr className="sign-td" key={a.id}><td style={{ fontSize: 8 }}>{a.auditor?.name ?? ""}</td><td style={{ fontSize: 8 }}>{a.tanggal} {a.jam}</td></tr>
+                    ))
+                  )}
+                  <tr style={{ fontSize: 7.5, color: "#555", textAlign: "center" }}><td>Nama & ttd</td><td>Tgl / Jam</td></tr>
+                </tbody></table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="foot">
+          <span>Asli – dipasang di tempat kerja</span>
+          <span>Salinan Pink – dipasang di Control Room</span>
+        </div>
+        <div className="note">
+          Dokumen dihasilkan digital oleh Sistem Digital Permit SHE — EMP Bentu Limited · Status: {permit.status?.toUpperCase()} · Dicetak: {fmt(new Date().toISOString())}
         </div>
       </div>
     </div>

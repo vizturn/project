@@ -20,7 +20,7 @@ import CseAccessLogForm from "../components/CseAccessLogForm";
 import PsbFilesSection from "../components/PsbFilesSection";
 import { submitHazards, reviewHazards } from "../services/hazardService";
 import { toast } from "sonner";
-import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine, History, Printer } from "lucide-react";
+import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine, History, Printer, FileStack } from "lucide-react";
 import Section from "../components/Section";
 
 export default function PermitDetailPage() {
