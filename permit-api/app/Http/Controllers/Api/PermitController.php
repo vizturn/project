@@ -280,6 +280,80 @@ class PermitController extends Controller
         ]);
     }
 
+    /**
+     * PA / IA / AA menyesuaikan (ceklis / uncheck) PSB sebelum izin diterbitkan.
+     * Alur penetapan awal tetap oleh AA saat approve; method ini untuk penyesuaian.
+     * PSB dikelola PER JENIS IZIN. Body: { psb: [ { permit_type_id, psb_type_ids: [] } ] }.
+     */
+    public function setPsb(Request $request, Permit $permit)
+    {
+        $user = $request->user();
+
+        // Hanya boleh sebelum izin diterbitkan (belum final/di-ACC IA).
+        $statusBoleh = ['disetujui', 'menunggu_persiapan_pa', 'menunggu_penerbitan'];
+        if (! in_array($permit->status, $statusBoleh, true)) {
+            return response()->json(['message' => 'PSB hanya dapat diubah sebelum izin diterbitkan.'], 422);
+        }
+
+        // Hanya PA / IA / AA yang terkait dengan izin ini.
+        $terkait = $this->ditugaskan($permit->performing_authority_id, $user->id)
+            || $this->ditugaskan($permit->issuing_authority_id, $user->id)
+            || $this->ditugaskan($permit->approval_authority_id, $user->id);
+        if (! $terkait || ! ($user->hasRole('PA') || $user->hasRole('IA') || $user->hasRole('AA'))) {
+            return response()->json(['message' => 'Anda tidak berwenang mengubah PSB izin ini.'], 403);
+        }
+
+        $data = $request->validate([
+            'psb'                    => ['present', 'array'],
+            'psb.*.permit_type_id'   => ['required', 'integer', 'exists:permit_types,id'],
+            'psb.*.psb_type_ids'     => ['present', 'array'],
+            'psb.*.psb_type_ids.*'   => ['integer', 'exists:psb_types,id'],
+        ]);
+
+        DB::transaction(function () use ($permit, $user, $data) {
+            foreach ($data['psb'] as $kelompok) {
+                $permitTypeId = $kelompok['permit_type_id'];
+                $dicentang    = collect($kelompok['psb_type_ids'])->unique();
+
+                // PSB yang saat ini tersimpan untuk jenis ini.
+                $existing = PsbForm::where('permit_id', $permit->id)
+                    ->where('permit_type_id', $permitTypeId)
+                    ->pluck('psb_type_id');
+
+                // Hapus yang tidak lagi dicentang.
+                $hapus = $existing->diff($dicentang);
+                if ($hapus->isNotEmpty()) {
+                    PsbForm::where('permit_id', $permit->id)
+                        ->where('permit_type_id', $permitTypeId)
+                        ->whereIn('psb_type_id', $hapus)
+                        ->delete();
+                }
+
+                // Tambah yang baru dicentang (skip yang sudah ada).
+                $tambah = $dicentang->diff($existing);
+                foreach ($tambah as $psbTypeId) {
+                    PsbForm::create([
+                        'permit_id'      => $permit->id,
+                        'permit_type_id' => $permitTypeId,
+                        'psb_type_id'    => $psbTypeId,
+                        'diisi_oleh'     => $user->id,
+                        'status'         => 'ditetapkan',
+                    ]);
+                }
+            }
+
+            $this->service->recordTransition(
+                $permit, $permit->status, $permit->status, $user, 'set_psb',
+                ['psb' => $data['psb']]
+            );
+        });
+
+        return response()->json([
+            'message' => 'PSB berhasil diperbarui.',
+            'data'    => $permit->load('psbForms.psbType', 'psbForms.permitType'),
+        ]);
+    }
+
     /** S12 — AA menolak (menunggu_approval -> ditolak). */
     public function reject(RejectPermitRequest $request, Permit $permit)
     {

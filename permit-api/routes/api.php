@@ -83,6 +83,11 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::post('/permits/{permit}/psb-files', [PsbFileController::class, 'store']);
     Route::delete('/permits/{permit}/psb-files/{psbFile}', [PsbFileController::class, 'destroy']);
 
+    // PSB ceklis/uncheck oleh PA/IA/AA sebelum izin terbit (guard detail di controller).
+    Route::middleware('role:PA,IA,AA')->group(function () {
+        Route::put('/permits/{permit}/psb', [PermitController::class, 'setPsb']);
+    });
+
     Route::middleware('role:PA')->group(function () {
         Route::post('/permits', [PermitController::class, 'store']);
         Route::put('/permits/{permit}', [PermitController::class, 'update']);

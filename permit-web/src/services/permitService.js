@@ -9,6 +9,9 @@ export const submitPermit = (id) => api.post(`/permits/${id}/submit`);
 // psb: [{ permit_type_id, psb_type_ids: [...] }, ...]
 export const approvePermit = (id, psb) =>
   api.post(`/permits/${id}/approve`, { psb });
+// Set (ceklis/uncheck) PSB oleh PA/IA/AA sebelum izin terbit.
+export const setPsb = (id, psb) =>
+  api.put(`/permits/${id}/psb`, { psb });
 export const rejectPermit = (id, alasan) =>
   api.post(`/permits/${id}/reject`, { alasan });
 // Bagian 5/6 — Penerbitan (IA). payload opsional { tanggal, jam } khusus WAH; kosongkan untuk jenis lain (now() otomatis).

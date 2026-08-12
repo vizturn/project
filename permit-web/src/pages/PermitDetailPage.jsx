@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Button from "../components/Button";
 import { useNavigate, useParams } from "react-router-dom";
-import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit } from "../services/permitService";
+import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit, setPsb } from "../services/permitService";
 import { getPsbTypes } from "../services/masterService";
 import { storeWahIsolation, storeWahPreparation, reviewWahPreparation, addWahAccessLog, wahFileUrl } from "../services/wahService";
 import { storeCseIsolation, storeCsePreparation, addCseAccessLog, cseFileUrl } from "../services/cseService";
@@ -35,6 +35,7 @@ export default function PermitDetailPage() {
   // state form approval & gas test
   const [psbTypes, setPsbTypes] = useState([]);
   const [selectedPsb, setSelectedPsb] = useState({}); // { [psbTypeId]: true } — SATU checklist untuk semua jenis izin
+  const [editPsb, setEditPsb] = useState(null); // { [psbTypeId]: true } — editor PSB (PA/IA/AA) sebelum terbit; null = belum dibuka
   const [alasan, setAlasan] = useState("");
   const [gas, setGas] = useState({ oksigen_persen: "", lel_persen: "", co_ppm: "", h2s_ppm: "" });
   const [catatanAudit, setCatatanAudit] = useState("");
@@ -61,7 +62,9 @@ export default function PermitDetailPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    if (hasRole("AA")) getPsbTypes().then((res) => setPsbTypes(res.data.data)).catch(() => {});
+    if (hasRole("AA") || hasRole("PA") || hasRole("IA")) {
+      getPsbTypes().then((res) => setPsbTypes(res.data.data)).catch(() => {});
+    }
   }, [hasRole]);
 
   const pad = (n) => String(n).padStart(2, "0");
@@ -161,6 +164,23 @@ export default function PermitDetailPage() {
     run(() => approvePermit(id, psb), "Izin disetujui.");
   };
 
+  // Editor PSB (PA/IA/AA): buka editor dengan PSB yang sudah tersimpan sebagai awal.
+  const bukaEditPsb = () => {
+    const awal = {};
+    (permit.psb_forms || []).forEach((f) => {
+      if (f.psb_type_id) awal[f.psb_type_id] = true;
+    });
+    setEditPsb(awal);
+  };
+  const toggleEditPsb = (psbId) =>
+    setEditPsb((prev) => ({ ...prev, [psbId]: !prev[psbId] }));
+  const simpanPsb = () => {
+    const psbTypeIds = Object.keys(editPsb).filter((k) => editPsb[k]).map(Number);
+    // Set PSB yang sama ke setiap jenis izin (pola sama seperti approve AA).
+    const psb = jenisIzin.map((t) => ({ permit_type_id: t.id, psb_type_ids: psbTypeIds }));
+    run(() => setPsb(id, psb), "PSB diperbarui.").then((ok) => { if (ok) setEditPsb(null); });
+  };
+
   const doReturn = () => {
     if (!tglKembali || !jamKembali) { toast.error("Tanggal & jam pengembalian wajib diisi."); return; }
     run(() => returnPermit(id, { tanggal: tglKembali, jam: jamKembali }), "Izin dikembalikan.");
@@ -247,6 +267,10 @@ export default function PermitDetailPage() {
   if (!permit) return null;
 
   const S = permit.status;
+  // PSB boleh diubah (ceklis/uncheck) oleh PA/IA/AA sebelum izin diterbitkan.
+  const bolehUbahPsb =
+    ["disetujui", "menunggu_persiapan_pa", "menunggu_penerbitan"].includes(S) &&
+    (hasRole("PA") || hasRole("IA") || hasRole("AA"));
   const fmt = (d) => (d ? new Date(d).toLocaleString("id-ID") : "-");
 
   return (
@@ -308,7 +332,7 @@ export default function PermitDetailPage() {
         />
 
         {/* PSB yang ditetapkan */}
-        {permit.psb_forms?.length > 0 && (
+        {(permit.psb_forms?.length > 0 || bolehUbahPsb) && (
           <Section title="PSB Ditetapkan" icon={FileText} defaultOpen>
             <div className="space-y-2">
               {jenisIzin.map((t) => {
@@ -335,6 +359,38 @@ export default function PermitDetailPage() {
                       {f.psb_type?.kode} — {f.psb_type?.nama}
                     </span>
                   ))}
+                </div>
+              )}
+              {permit.psb_forms.length === 0 && (
+                <p className="text-sm text-slate-400">Belum ada PSB. {bolehUbahPsb && "Klik \"Ubah PSB\" untuk menambah."}</p>
+              )}
+
+              {/* Editor PSB — PA/IA/AA boleh ceklis/uncheck sebelum izin terbit */}
+              {bolehUbahPsb && editPsb === null && (
+                <button onClick={bukaEditPsb} className="mt-2 text-sm text-brand font-medium hover:underline">
+                  Ubah PSB
+                </button>
+              )}
+              {bolehUbahPsb && editPsb !== null && (
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <p className="text-xs text-slate-500 mb-2">Centang PSB (Life-Saving Rules) yang berlaku untuk pekerjaan ini:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-3">
+                    {psbTypes.map((p) => (
+                      <label key={p.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!editPsb[p.id]}
+                          onChange={() => toggleEditPsb(p.id)}
+                          className="accent-brand"
+                        />
+                        <span>{p.kode} — {p.nama}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="primary" onClick={simpanPsb} disabled={busy}>Simpan PSB</Button>
+                    <Button variant="outline" onClick={() => setEditPsb(null)} disabled={busy}>Batal</Button>
+                  </div>
                 </div>
               )}
             </div>
