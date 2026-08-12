@@ -21,7 +21,7 @@ import { toast } from "sonner";
 const TEMA = {
   HWP: { warna: "#7a1f2b", judul: "Permit to Work (PTW)", sub: "Pekerjaan Panas – berpotensi percikan api", fom: "EMP-SHE-FOM-00.016" },
   CWP: { warna: "#1f3a5f", judul: "Permit to Work (PTW)", sub: "Pekerjaan Dingin – tanpa sumber api dan listrik", fom: "EMP-SHE-FOM-00.017" },
-  CSE: { warna: "#7a3b1f", judul: "Confined Space Entry Permit", sub: "Hanya untuk masuk dan melakukan inspeksi", fom: "EMP-SHE-FOM-00.018" },
+  CSE: { warna: "#b5581f", judul: "Confined Space Entry Permit", sub: "Hanya untuk masuk dan melakukan inspeksi", fom: "EMP-SHE-FOM-00.018" },
   WAH: { warna: "#3f3f46", judul: "Work at Height Permit (WAH)", sub: "Untuk akses ke lokasi kerja di ketinggian 1,8 m (6 feet) atau lebih", fom: "EMP-SHE-FOM-00.023" },
 };
 
@@ -39,6 +39,16 @@ const PSB_PER_JENIS = {
     ["PSB-5", "Penggalian"], ["PSB-6", "Pekerjaan Panas"], ["PSB-8", "Angkutan Orang"],
     ["PSB-9", "Pengangkatan Mekanis"], ["PSB-10", "Penanganan Tubular"], ["PSB-11", "Bekerja di sekitar Peralatan Bergerak"],
     ["PSB-12", "Bekerja di Dekat Air"], ["PSB-13", "Bekerja di Ketinggian"],
+  ],
+  CSE: [
+    ["PSB-1", "Memasuki Ruang Terbatas"], ["PSB-2", "Pembukaan Isolasi"], ["PSB-4", "Isolasi Energi"],
+    ["PSB-6", "Pekerjaan Panas"], ["PSB-7", "Sistem Listrik Beraliran / Hidup"], ["PSB-8", "Angkutan Orang"],
+    ["PSB-11", "Bekerja di sekitar Peralatan Bergerak"], ["PSB-12", "Bekerja di Dekat Air"], ["PSB-13", "Bekerja di Ketinggian"],
+  ],
+  WAH: [
+    ["PSB-1", "Memasuki Ruang Terbatas"], ["PSB-2", "Pembukaan Isolasi"], ["PSB-4", "Isolasi Energi"],
+    ["PSB-6", "Pekerjaan Panas"], ["PSB-7", "Sistem Listrik Beraliran / Hidup"], ["PSB-8", "Angkutan Orang"],
+    ["PSB-11", "Bekerja di sekitar Peralatan Bergerak"], ["PSB-12", "Bekerja di Dekat Air / Lumpur"], ["PSB-13", "Bekerja di Ketinggian"],
   ],
 };
 
@@ -91,6 +101,33 @@ export default function PermitPrintPage() {
   const bahayaDipilih = new Set((permit.hazards || []).map((h) => Number(h.no_bahaya)));
   const psbDipilih = new Set((permit.psb_forms || []).map((f) => f.psb_type?.kode).filter(Boolean));
   const risiko = permit.tingkat_risiko;
+
+  // CSE punya struktur berbeda (Persiapan ruang terbatas + tabel gas khusus).
+  const isCSE = kodeUtama === "CSE";
+  const cseParalatan = new Set(permit.cse_peralatan || []);
+  const PERALATAN_CSE = [
+    ["escape_harness_tripod", "Escape harness, line & tripod"],
+    ["breathing_apparatus", "Breathing apparatus"],
+    ["stretcher_ambulance", "Stretcher, ambulance"],
+    ["medic_first_aid", "Medic, First Aid Kit"],
+    ["fire_extinguisher", "Fire extinguishers"],
+    ["ventilasi_mekanis", "Ventilasi mekanis"],
+  ];
+  const gasAwal = (permit.gas_tests || []).filter((g) => g.fase === "awal");
+  const gasLanjutan = (permit.gas_tests || []).filter((g) => g.fase !== "awal");
+
+  // WAH punya bagian khusus (daftar pekerja + pelatihan, peralatan ketinggian).
+  const isWAH = kodeUtama === "WAH";
+  const wahParalatan = new Set(permit.wah_peralatan || []);
+  const PERALATAN_WAH = [
+    ["full_body_harness", "Full body harness"],
+    ["barrier", "Barrier di sekitar lokasi kerja"],
+    ["double_lanyard", "Double lanyard"],
+    ["medic", "Medic, first aider, first aid kit"],
+    ["anchor_point", "Anchor Point yang disetujui"],
+    ["ambulance", "Ambulance"],
+  ];
+  const wahWorkers = permit.wah_workers || [];
 
   // Bagian 9 & 10: ambil waktu dari riwayat status (cara b).
   const histSelesai = (permit.status_histories || []).find((h) => h.status === "selesai");
@@ -203,6 +240,7 @@ export default function PermitPrintPage() {
         </div>
 
         {/* 3. IDENTIFIKASI BAHAYA */}
+        {!isCSE && !isWAH && <>
         <div className="sec">3. Identifikasi Bahaya dan Pengendalian <small>(dilengkapi oleh PA dan diperiksa Issuing Authority - IA)</small></div>
         <div style={{ border: "1px solid var(--tema)", borderTop: "none", padding: "4px 8px 0", fontSize: 9, fontWeight: 700 }}>Bahaya-bahaya (tandai yang sesuai)</div>
         <div className="chk-wrap" style={{ borderTop: "none" }}>
@@ -295,6 +333,147 @@ export default function PermitPrintPage() {
             </tr>
           </tbody>
         </table>
+        </>}
+
+        {/* 3 & 4 KHUSUS CSE: Persiapan Ruang Terbatas + Pengujian Gas */}
+        {isCSE && <>
+        <div className="sec">3. Persiapan <small>(dilengkapi bersama oleh Issuing Authority - IA dan Performing Authority - PA)</small></div>
+        <table className="tbl">
+          <tbody>
+            <tr>
+              <td style={{ width: "38%", fontSize: 9 }}>IA telah mengevaluasi sistem yang berkaitan dengan ruang terbatas, apakah memerlukan <b>ISOLASI ENERGI</b></td>
+              <td style={{ width: "28%" }}>
+                <span className="chk"><span className={"box" + (permit.cse_isolasi_diperlukan ? " on" : "")} /> Diperlukan</span>
+                <span className="chk" style={{ marginTop: 3 }}><span className={"box" + (permit.cse_isolasi_diperlukan === false ? " on" : "")} /> Tidak diperlukan</span>
+              </td>
+              <td><span className="lbl">Sertifikat Isolasi (nomor & lampiran)</span><span className="val">{permit.cse_isolasi_cert_nomor ?? ""}</span></td>
+            </tr>
+            <tr>
+              <td style={{ fontSize: 9 }}><b>PA</b> telah melakukan identifikasi bahaya dan penilaian risiko <b>memasuki</b> dan <b>bekerja</b> di dalam ruang terbatas</td>
+              <td><span className="lbl">Nomor JSA (lampirkan)</span><span className="val">{permit.nomor_jsa ?? ""}</span></td>
+              <td style={{ fontSize: 8, color: "#555" }}>Memasuki ruang terbatas adalah aktivitas berbahaya. PA & IA harus memastikan setiap langkah mitigasi yang tertuang dalam JSA ada dan dilaksanakan.</td>
+            </tr>
+            <tr>
+              <td style={{ fontSize: 9 }}><b>PA</b> telah menetapkan petugas jaga di luar ruang terbatas, yang mencatat pekerja yang masuk dan menghitung waktu pekerja di dalam ruang terbatas</td>
+              <td><span className="lbl">Nama Petugas Jaga</span><span className="val">{permit.cse_petugas_jaga?.name ?? permit.cse_petugas_jaga_nama ?? ""}</span></td>
+              <td><span className="lbl">Peralatan komunikasi digunakan</span><span className="val">{permit.cse_alat_komunikasi ?? ""}</span></td>
+            </tr>
+            <tr>
+              <td style={{ fontSize: 9 }}><b>PA</b> telah mempersiapkan peralatan khusus, rencana evakuasi darurat dari dalam ruang terbatas, dan diverifikasi oleh <b>IA</b></td>
+              <td colSpan={2}>
+                <div style={{ fontSize: 8, color: "#555", marginBottom: 4 }}>Peralatan khusus yang diperlukan dan IA telah memeriksa ketersediaannya di lokasi</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 12px" }}>
+                  {PERALATAN_CSE.map(([kode, label]) => (
+                    <span className="chk" key={kode}><span className={"box" + (cseParalatan.has(kode) ? " on" : "")} /> {label}</span>
+                  ))}
+                  <span className="chk"><span className="box" /> Lainnya: {permit.cse_peralatan_lainnya ?? ""}</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="sec">4. Pengujian Kadar Gas <small>(diminta oleh IA dan dilaksanakan oleh Authorized Gas Tester - AGT)</small></div>
+        <table className="tbl">
+          <tbody>
+            <tr style={{ fontSize: 8, color: "#555", fontWeight: 700, background: "#f3f3f3", textAlign: "center" }}>
+              <td style={{ width: "22%" }}>Kadar Gas Diuji</td>
+              <td style={{ width: "22%" }}>Batasan yang diizinkan</td>
+              <td>Hasil Pengujian Awal</td>
+              <td>Pengujian Lanjutan</td>
+            </tr>
+            {[
+              ["Oksigen", "19.5% - 23.5%", "oksigen"],
+              ["%LEL", "<10%", "lel"],
+              ["Karbon Monoksida", "< 35 ppm (8 jam)", "co_ppm"],
+              ["Hidrogen Sulfida", "< 10 ppm (8 jam)", "h2s"],
+            ].map(([nama, batas, field]) => (
+              <tr key={field}>
+                <td style={{ fontWeight: 700, fontSize: 9 }}>{nama}</td>
+                <td style={{ fontSize: 9 }}>{batas}</td>
+                <td>{gasAwal[0]?.[field] ?? ""}</td>
+                <td>{gasLanjutan.map((g) => g[field]).filter(Boolean).join(" · ")}</td>
+              </tr>
+            ))}
+            <tr>
+              <td style={{ fontWeight: 700, fontSize: 9 }}>Petugas AGT</td>
+              <td colSpan={3} style={{ fontSize: 9 }}>
+                Nama: {(permit.gas_tests || []).map((g) => g.agt?.name).filter(Boolean).join(", ") || ""}
+              </td>
+            </tr>
+            <tr>
+              <td colSpan={4} style={{ fontSize: 8, textAlign: "center", fontStyle: "italic" }}>
+                Issuing Authority tidak mengizinkan memasuki ruang terbatas jika hasil pengujian awal menunjukkan kadar gas diuji di luar batas yang diizinkan
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        </>}
+
+        {/* 3 KHUSUS WAH: Persiapan Bekerja di Ketinggian */}
+        {isWAH && <>
+        <div className="sec">3. Persiapan <small>(dilengkapi bersama oleh Issuing Authority - IA dan PA)</small></div>
+        <table className="tbl">
+          <tbody>
+            <tr>
+              <td style={{ width: "38%", fontSize: 9 }}>IA telah mengevaluasi sistem yang berkaitan dengan lokasi kerja di ketinggian, apakah memerlukan <b>ISOLASI ENERGI</b></td>
+              <td style={{ width: "28%" }}>
+                <span className="chk"><span className={"box" + (permit.wah_isolasi_diperlukan ? " on" : "")} /> Diperlukan</span>
+                <span className="chk" style={{ marginTop: 3 }}><span className={"box" + (permit.wah_isolasi_diperlukan === false ? " on" : "")} /> Tidak diperlukan</span>
+              </td>
+              <td><span className="lbl">Sertifikat Isolasi (nomor & lampiran)</span><span className="val">{permit.wah_isolasi_cert_nomor ?? ""}</span></td>
+            </tr>
+            <tr>
+              <td style={{ fontSize: 9 }}><b>PA</b> telah melakukan identifikasi bahaya dan penilaian risiko <b>bekerja di ketinggian</b></td>
+              <td><span className="lbl">Nomor JSA (nomor & lampirkan)</span><span className="val">{permit.nomor_jsa ?? ""}</span></td>
+              <td style={{ fontSize: 8, color: "#555" }}>Bekerja di ketinggian adalah aktivitas berbahaya. PA & IA harus memastikan setiap langkah mitigasi yang tertuang dalam JSA ada dan dilaksanakan.</td>
+            </tr>
+          </tbody>
+        </table>
+        {/* Daftar pekerja + pelatihan */}
+        <table className="tbl" style={{ borderTop: "none" }}>
+          <tbody>
+            <tr style={{ background: "#f3f3f3", fontWeight: 700, textAlign: "center", fontSize: 9 }}>
+              <td style={{ width: "60%" }}>Nama Pekerja</td>
+              <td>Telah Mengikuti Pelatihan Bekerja di Ketinggian</td>
+            </tr>
+            {(wahWorkers.length === 0 ? [null, null, null] : wahWorkers).map((w, i) => (
+              <tr className="sign-td" key={i}>
+                <td style={{ fontSize: 9 }}>{w?.nama_pekerja ?? ""}</td>
+                <td style={{ textAlign: "center" }}>
+                  <span className="chk" style={{ display: "inline-flex", marginRight: 16 }}><span className={"box" + (w?.sudah_pelatihan === true ? " on" : "")} /> Ya</span>
+                  <span className="chk" style={{ display: "inline-flex" }}><span className={"box" + (w?.sudah_pelatihan === false ? " on" : "")} /> Tidak</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {/* Peralatan khusus ketinggian */}
+        <table className="tbl" style={{ borderTop: "none" }}>
+          <tbody>
+            <tr><td colSpan={2} style={{ fontSize: 8, color: "#555" }}>Peralatan khusus yang diperlukan dan IA telah memeriksa kelayakan peralatan dan ketersediaan di Lokasi (diperiksa oleh Issuing Authority)</td></tr>
+            <tr>
+              <td style={{ width: "50%", padding: "6px 8px" }}>
+                {PERALATAN_WAH.slice(0, 3).map(([kode, label]) => (
+                  <div className="chk" key={kode} style={{ marginBottom: 3 }}><span className={"box" + (wahParalatan.has(kode) ? " on" : "")} /> {label}</div>
+                ))}
+                <div className="chk"><span className={"box" + (permit.wah_peralatan_lainnya ? " on" : "")} /> Lainnya: {permit.wah_peralatan_lainnya ?? ""}</div>
+              </td>
+              <td style={{ width: "50%", padding: "6px 8px" }}>
+                {PERALATAN_WAH.slice(3).map(([kode, label]) => (
+                  <div className="chk" key={kode} style={{ marginBottom: 3 }}><span className={"box" + (wahParalatan.has(kode) ? " on" : "")} /> {label}</div>
+                ))}
+              </td>
+            </tr>
+            <tr>
+              <td colSpan={2} style={{ fontSize: 9 }}>
+                <b>Jika menggunakan perancah, PA melampirkan Scaffolding Certificate</b>
+                {"  "}<span style={{ color: "#555" }}>(nomor)</span>: {permit.wah_scaffolding_cert_nomor ?? ""}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        </>}
 
         {/* 6 & 7 PENERBITAN + PENERIMAAN */}
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
