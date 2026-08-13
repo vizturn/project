@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Models\AuditLog;
 use App\Models\Permit;
 use App\Models\PermitStatusHistory;
-use App\Models\PermitType;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Pusat logika nomor izin & pencatatan transisi status
@@ -15,35 +15,76 @@ use App\Models\User;
 class PermitService
 {
     /**
-     * Nomor izin:
-     *  - 1 jenis   -> {KODE}/{TAHUN}/{URUT}   mis. HWP/2026/0001  (format lama, deret per jenis)
-     *  - >=2 jenis -> PTW/{TAHUN}/{URUT}      mis. PTW/2026/0001  (deret sendiri)
+     * Nomor izin: {URUT}/PTW/{TAHUN}  — mis. 001/PTW/2026
      *
-     * @param  PermitType[]|\Illuminate\Support\Collection  $types
+     * SATU deret berurutan untuk SEMUA jenis izin, direset tiap tahun.
+     *
+     * Format lama memakai deret terpisah per jenis (HWP/2026/0001,
+     * CWP/2026/0001, PTW/2026/0001 untuk izin gabungan). Akibatnya nomor
+     * "0001" bisa muncul tiga kali di tahun yang sama, dan pengguna tidak bisa
+     * menyimpulkan apa pun dari nomor — izin ke-50 bisa saja bernomor 0007.
+     * Format baru mengikuti kebiasaan penomoran surat perusahaan: urut dulu,
+     * lalu kode, lalu tahun. Jenis izin tetap terbaca dari kolom permit_types,
+     * dan tercetak jelas di lembar PTW-nya sendiri.
      */
-    public function generateNomorIzin($types): string
+    public function generateNomorIzin(): string
     {
-        $types  = collect($types);
-        $prefix = $types->count() > 1
-            ? 'PTW'
-            : $types->first()->kode;
-
-        return $this->nomorBerurutan($prefix);
+        return $this->nomorBerurutan();
     }
 
-    private function nomorBerurutan(string $kode): string
+    /**
+     * Mengambil nomor urut berikutnya secara aman dari balapan (race condition).
+     *
+     * `lockForUpdate()` mengunci baris penghitung tahun berjalan sampai
+     * transaksi selesai, sehingga dua pengajuan yang datang bersamaan dilayani
+     * berurutan — bukan sama-sama membaca angka yang sama lalu bentrok di
+     * constraint unique `permits.nomor_izin`. Lihat catatan lengkap di
+     * migration create_permit_number_counters_table.
+     *
+     * Pemanggil (PermitController::store & update) sudah membungkus prosesnya
+     * dalam DB::transaction, jadi transaction di sini menjadi savepoint
+     * bersarang dan kuncinya ikut dilepas saat transaksi terluar selesai.
+     */
+    private function nomorBerurutan(): string
     {
-        $prefix = $kode . '/' . now()->year . '/';
+        $tahun = (int) now()->year;
 
-        $last = Permit::where('nomor_izin', 'like', $prefix . '%')
-            ->orderByDesc('id')
-            ->value('nomor_izin');
+        $urut = DB::transaction(function () use ($tahun) {
+            $baris = DB::table('permit_number_counters')
+                ->where('tahun', $tahun)
+                ->lockForUpdate()
+                ->first();
 
-        $seq = $last
-            ? ((int) substr($last, strlen($prefix))) + 1
-            : 1;
+            // Tahun baru (mis. pergantian ke 2027) belum punya baris penghitung.
+            if (! $baris) {
+                DB::table('permit_number_counters')->insert([
+                    'tahun'       => $tahun,
+                    'last_number' => 0,
+                    'created_at'  => now(),
+                    'updated_at'  => now(),
+                ]);
 
-        return $prefix . str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+                $baris = DB::table('permit_number_counters')
+                    ->where('tahun', $tahun)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            $berikutnya = (int) $baris->last_number + 1;
+
+            DB::table('permit_number_counters')
+                ->where('tahun', $tahun)
+                ->update([
+                    'last_number' => $berikutnya,
+                    'updated_at'  => now(),
+                ]);
+
+            return $berikutnya;
+        });
+
+        // %03d memberi padding minimal 3 digit (001..999) dan meluas sendiri
+        // begitu melewati 999 menjadi 1000 — tidak ada batas atas buatan.
+        return sprintf('%03d/PTW/%d', $urut, $tahun);
     }
 
     /** Kumpulan kode jenis izin (HWP, CWP, CSE, WAH) yang melekat pada satu izin. */

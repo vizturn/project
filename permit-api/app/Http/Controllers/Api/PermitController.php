@@ -101,7 +101,7 @@ class PermitController extends Controller
             $types = PermitType::whereIn('id', $data['permit_type_ids'])->get();
 
             $permit = Permit::create([
-                'nomor_izin'              => $this->service->generateNomorIzin($types),
+                'nomor_izin'              => $this->service->generateNomorIzin(),
                 // Jenis utama (pertama) tetap disimpan demi kompatibilitas data & rekap lama.
                 'permit_type_id'          => $types->first()->id,
                 'screening_id'            => $data['screening_id'] ?? null,
@@ -159,8 +159,19 @@ class PermitController extends Controller
             $types = PermitType::whereIn('id', $data['permit_type_ids'])->get();
 
             $permit->update([
-                // Jenis izin bisa berubah → nomor izin di-generate ulang agar tetap konsisten.
-                'nomor_izin'            => $this->service->generateNomorIzin($types),
+                // Nomor izin TIDAK di-generate ulang saat draft disunting.
+                //
+                // Dulu perlu, karena nomor membawa kode jenis (HWP/2026/0001)
+                // sehingga PA yang mengubah jenis izin harus dapat nomor baru.
+                // Sejak format 001/PTW/2026 dipakai, kode jenis tidak lagi ada
+                // di nomor — jadi tidak ada yang perlu disesuaikan.
+                //
+                // Justru regenerasi menjadi merugikan: tiap penyuntingan draft
+                // akan menghabiskan satu nomor dari deret global, meninggalkan
+                // lubang di urutan (001, 004, 005...), dan nomor izin berubah-ubah
+                // padahal PA mungkin sudah menyebutkannya lewat lisan atau
+                // mencatatnya di lapangan. Nomor izin harus stabil sejak draft
+                // dibuat sampai izin ditutup.
                 'permit_type_id'        => $types->first()->id,
                 'screening_id'          => $data['screening_id'] ?? null,
                 'approval_authority_id' => $data['approval_authority_id'],
