@@ -23,6 +23,7 @@ class MultiPermitTypeTest extends ApiTestCase
             'permit_type_ids'       => [$this->idPermitType('HWP'), $this->idPermitType('WAH')],
             'lokasi'                => 'Area Tangki T-101',
             'deskripsi_pekerjaan'   => 'Pengelasan pada ketinggian',
+            'durasi'                => 8,
             'approval_authority_id' => $aa->id,
             'issuing_authority_id'  => $ia->id,
         ])->assertCreated()->json('data.id');
@@ -46,22 +47,46 @@ class MultiPermitTypeTest extends ApiTestCase
         ]);
     }
 
-    public function test_nomor_izin_multi_jenis_memakai_prefiks_ptw(): void
+    public function test_nomor_izin_multi_jenis_memakai_format_urut_ptw_tahun(): void
     {
         ['id' => $id] = $this->buatIzinMulti();
 
         $nomor = DB::table('permits')->where('id', $id)->value('nomor_izin');
 
-        $this->assertStringStartsWith('PTW/', $nomor);
+        // mis. 001/PTW/2026 — minimal 3 digit urut, lalu PTW, lalu tahun.
+        $this->assertMatchesRegularExpression('#^\d{3,}/PTW/\d{4}$#', $nomor);
     }
 
-    public function test_nomor_izin_satu_jenis_tetap_memakai_kode_jenis(): void
+    public function test_nomor_izin_satu_jenis_memakai_format_yang_sama(): void
     {
         ['id' => $id] = $this->buatIzinDraft(); // helper: 1 jenis (HWP)
 
         $nomor = DB::table('permits')->where('id', $id)->value('nomor_izin');
 
-        $this->assertStringStartsWith('HWP/', $nomor);
+        // Deret nomor TIDAK lagi dipisah per jenis: izin 1 jenis maupun
+        // gabungan memakai satu format & satu deret yang sama.
+        $this->assertMatchesRegularExpression('#^\d{3,}/PTW/\d{4}$#', $nomor);
+    }
+
+    public function test_nomor_izin_berurutan_dan_tidak_terulang(): void
+    {
+        ['id' => $id1] = $this->buatIzinDraft();
+        ['id' => $id2] = $this->buatIzinDraft();
+        ['id' => $id3] = $this->buatIzinMulti();
+
+        $nomor = DB::table('permits')
+            ->whereIn('id', [$id1, $id2, $id3])
+            ->orderBy('id')
+            ->pluck('nomor_izin')
+            ->all();
+
+        // Tidak ada nomor yang kembar meski jenis izinnya berbeda-beda.
+        $this->assertCount(3, array_unique($nomor));
+
+        // Bertambah satu-satu dalam satu deret global.
+        $urut = array_map(fn ($n) => (int) explode('/', $n)[0], $nomor);
+        $this->assertSame($urut[0] + 1, $urut[1]);
+        $this->assertSame($urut[1] + 1, $urut[2]);
     }
 
     public function test_pengajuan_tanpa_jenis_izin_ditolak(): void
@@ -74,6 +99,7 @@ class MultiPermitTypeTest extends ApiTestCase
             'permit_type_ids'       => [],
             'lokasi'                => 'Area A',
             'deskripsi_pekerjaan'   => 'Kerja',
+            'durasi'                => 8,
             'approval_authority_id' => $aa->id,
             'issuing_authority_id'  => $ia->id,
         ])->assertStatus(422)

@@ -78,13 +78,19 @@ abstract class ApiTestCase extends TestCase
         $ia = $this->userWithRole('IA');
 
         $pa = $this->actingAsRole('PA');
+
+        // assertCreated() penting: tanpa ini, request yang gagal membuat helper
+        // mengembalikan null secara diam-diam, dan tes yang memakainya gagal di
+        // tempat yang jauh dari penyebab aslinya (mis. "null given" pada
+        // assertion soal nomor izin, padahal akar masalahnya validasi di sini).
         $id = $this->postJson('/api/permits', [
             'permit_type_ids'       => [$this->idPermitType('HWP')],
             'lokasi'                => 'Area Stasiun A',
             'deskripsi_pekerjaan'   => 'Pengelasan pipa',
+            'durasi'                => 8,
             'approval_authority_id' => $aa->id,
             'issuing_authority_id'  => $ia->id,
-        ])->json('data.id');
+        ])->assertCreated()->json('data.id');
 
         return ['id' => $id, 'pa' => $pa, 'aa' => $aa, 'ia' => $ia];
     }

@@ -17,6 +17,7 @@ class PermitLifecycleTest extends ApiTestCase
             'permit_type_ids'       => [$this->idPermitType('HWP')],
             'lokasi'                => 'Area A',
             'deskripsi_pekerjaan'   => 'Pengelasan',
+            'durasi'                => 8,
             'approval_authority_id' => $aa->id,
             'issuing_authority_id'  => $ia->id,
         ])->assertCreated()->json('data.id');

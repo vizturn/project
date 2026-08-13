@@ -18,6 +18,7 @@ class AssignmentTest extends ApiTestCase
             'permit_type_ids'     => [$this->idPermitType('HWP')],
             'lokasi'              => 'Area A',
             'deskripsi_pekerjaan' => 'Kerja',
+            'durasi'              => 8,
             // approval_authority_id & issuing_authority_id sengaja tidak dikirim
         ])->assertStatus(422)
           ->assertJsonValidationErrors(['approval_authority_id', 'issuing_authority_id']);
@@ -33,6 +34,7 @@ class AssignmentTest extends ApiTestCase
             'permit_type_ids'       => [$this->idPermitType('HWP')],
             'lokasi'                => 'Area A',
             'deskripsi_pekerjaan'   => 'Kerja',
+            'durasi'                => 8,
             'approval_authority_id' => $bukanAa->id,
             'issuing_authority_id'  => $ia->id,
         ])->assertStatus(422)

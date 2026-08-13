@@ -135,6 +135,7 @@ class HazardTest extends ApiTestCase
             'permit_type_ids'       => [$this->idPermitType('HWP'), $this->idPermitType('CWP')],
             'lokasi'                => 'Area A',
             'deskripsi_pekerjaan'   => 'Pekerjaan gabungan',
+            'durasi'                => 8,
             'approval_authority_id' => $aa->id,
             'issuing_authority_id'  => $ia->id,
         ])->json('data.id');
@@ -172,6 +173,7 @@ class HazardTest extends ApiTestCase
             'permit_type_ids'       => [$this->idPermitType('HWP'), $this->idPermitType('CWP')],
             'lokasi'                => 'Area A',
             'deskripsi_pekerjaan'   => 'Pekerjaan gabungan',
+            'durasi'                => 8,
             'approval_authority_id' => $aa->id,
             'issuing_authority_id'  => $ia->id,
         ])->json('data.id');

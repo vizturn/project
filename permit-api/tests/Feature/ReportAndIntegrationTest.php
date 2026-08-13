@@ -63,6 +63,7 @@ class ReportAndIntegrationTest extends ApiTestCase
             'permit_type_ids'       => [$this->idPermitType('CWP')],
             'lokasi'                => 'Area B',
             'deskripsi_pekerjaan'   => 'Inspeksi pipa',
+            'durasi'                => 8,
             'wo_id'                 => $woId,
             'equipment_id'          => $eqId,
             'approval_authority_id' => $aa->id,
