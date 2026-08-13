@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Button from "../components/Button";
 import { useNavigate, useParams } from "react-router-dom";
-import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit, setPsb } from "../services/permitService";
+import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit, setPsb, gasTestFileUrl } from "../services/permitService";
 import { getPsbTypes } from "../services/masterService";
 import { storeWahIsolation, storeWahPreparation, reviewWahPreparation, addWahAccessLog, wahFileUrl } from "../services/wahService";
 import { storeCseIsolation, storeCsePreparation, addCseAccessLog, cseFileUrl } from "../services/cseService";
@@ -704,7 +704,7 @@ export default function PermitDetailPage() {
           <Section title="Riwayat Uji Gas" icon={FlaskConical}>
             <table className="w-full text-sm">
               <thead><tr className="text-left text-slate-500 border-b border-slate-200">
-                <th className="py-1">Waktu</th><th>Fase</th><th>O₂%</th><th>LEL%</th><th>CO</th><th>H₂S</th><th>Petugas</th>
+                <th className="py-1">Waktu</th><th>Fase</th><th>O₂%</th><th>LEL%</th><th>CO</th><th>H₂S</th><th>Petugas</th><th>Diinput oleh</th><th>Foto</th>
               </tr></thead>
               <tbody>
                 {permit.gas_tests.map((g) => (
@@ -712,7 +712,19 @@ export default function PermitDetailPage() {
                     <td className="py-1">{g.tanggal} {g.jam}</td>
                     <td>{g.fase ? g.fase.charAt(0).toUpperCase() + g.fase.slice(1) : "-"}</td>
                     <td>{g.oksigen_persen}</td><td>{g.lel_persen}</td><td>{g.co_ppm ?? "-"}</td><td>{g.h2s_ppm ?? "-"}</td>
-                    <td>{g.agt?.name ?? "-"}</td>
+                    <td>{g.petugas_nama || "-"}</td>
+                    <td className="text-slate-400">{g.agt?.name ?? "-"}</td>
+                    <td>
+                      {g.foto_path ? (
+                        <a href={gasTestFileUrl(g.foto_path)} target="_blank" rel="noreferrer">
+                          <img
+                            src={gasTestFileUrl(g.foto_path)}
+                            alt="Dokumentasi uji gas"
+                            className="h-10 w-10 object-cover rounded border border-slate-200"
+                          />
+                        </a>
+                      ) : "-"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -794,7 +806,7 @@ export default function PermitDetailPage() {
           <Section title="Uji Gas (AGT)" icon={FlaskConical}>
             <GasResultForm
               busy={busy}
-              onSubmit={(payload) => run(() => addGasTest(id, payload), "Uji gas tersimpan.")}
+              onSubmit={(formData) => run(() => addGasTest(id, formData), "Uji gas tersimpan.")}
             />
           </Section>
         )}
@@ -908,7 +920,8 @@ export default function PermitDetailPage() {
                 <p className="text-sm text-slate-500 mb-3">Uji gas sebelum izin diterbitkan. Pengujian lanjutan bisa diisi lagi setelah izin aktif.</p>
                 <GasResultForm
                   busy={busy}
-                  onSubmit={(payload) => run(() => addGasTest(id, { ...payload, fase: "awal" }), "Hasil uji gas tersimpan.")}
+                  fase="awal"
+                  onSubmit={(formData) => run(() => addGasTest(id, formData), "Hasil uji gas tersimpan.")}
                 />
               </div>
             </div>
@@ -921,7 +934,24 @@ export default function PermitDetailPage() {
             <p className="text-sm text-slate-500 mb-3">Wajib diisi sebelum menerbitkan izin. Pengujian lanjutan diisi saat izin aktif.</p>
             <GasResultForm
               busy={busy}
-              onSubmit={(payload) => run(() => addGasTest(id, { ...payload, fase: "awal" }), "Pengujian gas awal tersimpan.")}
+              fase="awal"
+              onSubmit={(formData) => run(() => addGasTest(id, formData), "Pengujian gas awal tersimpan.")}
+            />
+          </Section>
+        )}
+
+        {/* WAH — Pengujian Kadar Gas AWAL (bila diperlukan, mis. area tertutup/berpotensi
+            gas di ketinggian), oleh IA, sebelum penerbitan. Bisa diisi berkali-kali
+            (setiap submit menambah baris baru di gas_tests). Berdiri sendiri dari
+            bagian HWP/CWP/CSE di atas — pada izin gabungan (mis. WAH+CSE) semua
+            bagian relevan tampil bersamaan. */}
+        {S === "menunggu_penerbitan" && hasRole("IA") && isWAH && (
+          <Section title="Pengujian Kadar Gas — Awal (WAH, bila diperlukan)" icon={FlaskConical}>
+            <p className="text-sm text-slate-500 mb-3">Isi bila pekerjaan di ketinggian ini memerlukan pengujian kadar gas. Pengujian lanjutan bisa diisi lagi setelah izin aktif.</p>
+            <GasResultForm
+              busy={busy}
+              fase="awal"
+              onSubmit={(formData) => run(() => addGasTest(id, formData), "Pengujian gas awal tersimpan.")}
             />
           </Section>
         )}
@@ -1012,7 +1042,8 @@ export default function PermitDetailPage() {
             <p className="text-sm text-slate-500 mb-3">Pengujian ulang selama pekerjaan berlangsung. Waktu dicatat otomatis; tambah setiap kali melakukan pengujian.</p>
             <GasResultForm
               busy={busy}
-              onSubmit={(payload) => run(() => addGasTest(id, { ...payload, fase: "lanjutan" }), "Pengujian gas lanjutan tersimpan.")}
+              fase="lanjutan"
+              onSubmit={(formData) => run(() => addGasTest(id, formData), "Pengujian gas lanjutan tersimpan.")}
             />
           </Section>
         )}
@@ -1025,7 +1056,22 @@ export default function PermitDetailPage() {
             <p className="text-sm text-slate-500 mb-3">Pengujian ulang selama pekerjaan berlangsung. PA akan mendapat notifikasi setiap kali hasil baru dicatat.</p>
             <GasResultForm
               busy={busy}
-              onSubmit={(payload) => run(() => addGasTest(id, { ...payload, fase: "lanjutan" }), "Pengujian gas lanjutan tersimpan.")}
+              fase="lanjutan"
+              onSubmit={(formData) => run(() => addGasTest(id, formData), "Pengujian gas lanjutan tersimpan.")}
+            />
+          </Section>
+        )}
+
+        {/* WAH — Pengujian Kadar Gas LANJUTAN (saat izin aktif), oleh IA, bisa
+            berkali-kali, bila diperlukan. Sama seperti HWP/CWP/CSE, PA mendapat
+            notifikasi setiap kali IA menambah hasil baru (lihat GasTestController). */}
+        {S === "aktif" && isWAH && hasRole("IA") && (
+          <Section title="Pengujian Kadar Gas — Lanjutan (WAH, bila diperlukan)" icon={FlaskConical}>
+            <p className="text-sm text-slate-500 mb-3">Pengujian ulang selama pekerjaan di ketinggian berlangsung, bila diperlukan. PA akan mendapat notifikasi setiap kali hasil baru dicatat.</p>
+            <GasResultForm
+              busy={busy}
+              fase="lanjutan"
+              onSubmit={(formData) => run(() => addGasTest(id, formData), "Pengujian gas lanjutan tersimpan.")}
             />
           </Section>
         )}

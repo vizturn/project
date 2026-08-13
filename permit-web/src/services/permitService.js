@@ -17,6 +17,10 @@ export const rejectPermit = (id, alasan) =>
 // Bagian 5/6 — Penerbitan (IA). payload opsional { tanggal, jam } khusus WAH; kosongkan untuk jenis lain (now() otomatis).
 export const issuePermit = (id, payload = {}) => api.post(`/permits/${id}/issue`, payload);
 export const addGasTest = (id, payload) => api.post(`/permits/${id}/gas-tests`, payload);
+// URL file publik (disk "public" + `php artisan storage:link`) untuk foto dokumentasi
+// uji gas. Dipakai langsung sebagai href/src — tidak butuh token.
+const STORAGE_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/api\/?$/, "") + "/storage/";
+export const gasTestFileUrl = (path) => (path ? STORAGE_BASE_URL + path : null);
 // Bagian 8 — Pengembalian: PA menuliskan tanggal & jam pengembalian.
 export const returnPermit = (id, payload) => api.post(`/permits/${id}/return`, payload);
 // Bagian 8 — Revalidasi: IA boleh mengoreksi tanggal & jam sebelum konfirmasi.

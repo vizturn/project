@@ -13,6 +13,7 @@ class GasTest extends Model
     protected $fillable = [
         'permit_id',
         'agt_id',
+        'petugas_nama',
         'fase',
         'tanggal',
         'jam',
@@ -20,6 +21,7 @@ class GasTest extends Model
         'oksigen_persen',
         'co_ppm',
         'h2s_ppm',
+        'foto_path',
     ];
 
     protected function casts(): array
@@ -39,7 +41,10 @@ class GasTest extends Model
     }
 
     /**
-     * AGT (Authorized Gas Tester) yang melakukan uji gas ini.
+     * AGT (Authorized Gas Tester) yang login & menginput uji gas ini.
+     * Catatan: ini akun sistem si penginput, BUKAN nama petugas lapangan —
+     * nama petugas lapangan yang sebenarnya melaksanakan pengetesan dicatat
+     * manual di kolom `petugas_nama`.
      */
     public function agt(): BelongsTo
     {
