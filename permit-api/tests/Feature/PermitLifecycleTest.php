@@ -76,13 +76,23 @@ class PermitLifecycleTest extends ApiTestCase
         $this->assertDatabaseHas('permits', ['id' => $id, 'status' => 'aktif']);
 
         // --- PA (owner): kembalikan ---
+        // ReturnPermitRequest mewajibkan tanggal + jam pengembalian: pada
+        // formulir manual, PA menuliskan kapan izin diserahkan kembali ke IA.
         Sanctum::actingAs($pa);
-        $this->postJson("/api/permits/{$id}/return")->assertOk();
+        $this->postJson("/api/permits/{$id}/return", [
+            'tanggal' => now()->format('Y-m-d'),
+            'jam'     => now()->format('H:i'),
+        ])->assertOk();
         $this->assertDatabaseHas('permits', ['id' => $id, 'status' => 'ditunda']);
 
         // --- IA: revalidasi ---
+        // RevalidatePermitRequest juga mewajibkan tanggal + jam (waktu IA
+        // menyatakan izin kembali berlaku).
         Sanctum::actingAs($ia);
-        $this->postJson("/api/permits/{$id}/revalidate")->assertOk();
+        $this->postJson("/api/permits/{$id}/revalidate", [
+            'tanggal' => now()->format('Y-m-d'),
+            'jam'     => now()->format('H:i'),
+        ])->assertOk();
         $this->assertDatabaseHas('permits', ['id' => $id, 'status' => 'aktif']);
 
         // --- PA (owner): selesaikan ---

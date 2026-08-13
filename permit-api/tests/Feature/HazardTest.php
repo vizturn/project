@@ -30,6 +30,7 @@ class HazardTest extends ApiTestCase
         ['id' => $id, 'pa' => $pa, 'ia' => $ia] = $this->buatIzinDisetujui();
 
         Sanctum::actingAs($pa);
+        $this->unggahPsb($id);
         $this->postJson("/api/permits/{$id}/hazards", [
             'hazards' => [[
                 'permit_type_id' => $this->idPermitType('HWP'),
@@ -190,6 +191,7 @@ class HazardTest extends ApiTestCase
 
         // Bahaya 01 & 04 ditandai pada KEDUA jenis -> harus DITERIMA.
         Sanctum::actingAs($pa);
+        $this->unggahPsb($id);
         $this->postJson("/api/permits/{$id}/hazards", [
             'hazards' => [
                 ['permit_type_id' => $this->idPermitType('HWP'), 'no_bahaya' => [1, 4]],

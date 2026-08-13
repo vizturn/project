@@ -9,7 +9,9 @@ use Database\Seeders\PsbTypeSeeder;
 use Database\Seeders\RoleSeeder;
 use Database\Seeders\ScreeningCriteriaSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -20,6 +22,10 @@ abstract class ApiTestCase extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Disk 'public' dipalsukan agar file uji (PSB, JSA, sertifikat, foto)
+        // tidak menumpuk di storage/app/public selama test dijalankan.
+        Storage::fake('public');
 
         // Master data yang dibutuhkan seluruh fitur.
         $this->seed([
@@ -119,8 +125,35 @@ abstract class ApiTestCase extends TestCase
      * Helper: PA melengkapi Bagian 3 (disetujui -> menunggu_penerbitan).
      * @param  int[]  $permitTypeIds  jenis izin yang tercakup
      */
+    /**
+     * Helper: PA mengunggah 1 file PSB.
+     *
+     * HazardController mewajibkan minimal 1 file PSB terunggah sebelum Bagian 3
+     * boleh dikirim (Formulir PSB / Life Saving Rules yang diisi manual).
+     * Syarat ini ditambahkan bersama fitur upload PSB tetapi test-nya tidak ikut
+     * disesuaikan, sehingga seluruh alur yang melewati Bagian 3 macet di status
+     * 'disetujui'. Helper ini menutup celah tersebut.
+     *
+     * Catatan: memakai $this->post(), BUKAN postJson() — file upload perlu
+     * dikirim sebagai multipart, sedangkan postJson() akan men-serialisasi
+     * UploadedFile menjadi JSON dan validasi 'file' gagal.
+     * Wajib dipanggil saat sedang bertindak sebagai PA pemilik izin dengan
+     * status 'disetujui', karena hanya itu yang diizinkan PsbFileController.
+     */
+    protected function unggahPsb(int $permitId): void
+    {
+        $this->post(
+            "/api/permits/{$permitId}/psb-files",
+            ['file' => UploadedFile::fake()->create('psb.pdf', 100, 'application/pdf')],
+            ['Accept' => 'application/json']
+        )->assertCreated();
+    }
+
     protected function lengkapiBahaya(int $permitId, array $permitTypeIds, array $noBahaya = [1, 4]): void
     {
+        // Prasyarat Bagian 3: minimal 1 file PSB sudah diunggah PA.
+        $this->unggahPsb($permitId);
+
         $this->postJson("/api/permits/{$permitId}/hazards", [
             'hazards' => array_map(fn ($tid) => [
                 'permit_type_id' => $tid,
@@ -128,7 +161,7 @@ abstract class ApiTestCase extends TestCase
             ], $permitTypeIds),
             'nomor_jsa'      => 'JSA-001',
             'tingkat_risiko' => 'sedang',
-        ]);
+        ])->assertOk();
     }
 
     /**
@@ -138,7 +171,7 @@ abstract class ApiTestCase extends TestCase
     {
         $this->postJson("/api/permits/{$permitId}/references", [
             'cert_isolation' => 'ISO-001',
-        ]);
+        ])->assertOk();
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Http\UploadedFile;
 use Laravel\Sanctum\Sanctum;
 
 /**
@@ -40,13 +41,26 @@ class IssuanceTest extends ApiTestCase
         ['id' => $id, 'ia' => $ia] = $this->siapTerbit();
 
         Sanctum::actingAs($ia);
-        $this->postJson("/api/permits/{$id}/references", [
+
+        // Sertifikat kondisional memakai pola centang-dulu: IA menandai
+        // cert_*_diperlukan, dan baru itu nomor + file-nya disimpan.
+        // IssuancePrepController membuang nomor sertifikat yang tidak ditandai
+        // (baris "$data[$key] = $diperlukan ? ... : null"), sehingga mengirim
+        // nomor tanpa centang akan tersimpan sebagai null — itu perilaku yang
+        // dikehendaki, bukan bug. File wajib menyertai bila diperlukan.
+        //
+        // Memakai $this->post() karena request ini multipart (ada file).
+        $this->post("/api/permits/{$id}/references", [
             'ref_permit_cse'              => 'CSE/2026/0007',
+            'cert_isolation_diperlukan'   => true,
             'cert_isolation'              => 'ISO-123',
+            'cert_isolation_file'         => UploadedFile::fake()->create('isolasi.pdf', 50, 'application/pdf'),
+            'cert_scaffolding_diperlukan' => true,
             'cert_scaffolding'            => 'SCF-456',
+            'cert_scaffolding_file'       => UploadedFile::fake()->create('scaffolding.pdf', 50, 'application/pdf'),
             'sistem_safety_dinonaktifkan' => 'Fire & gas detector zona 3',
             'referensi_lainnya'           => 'MSDS, Lifting Plan',
-        ])->assertOk();
+        ], ['Accept' => 'application/json'])->assertOk();
 
         $this->assertDatabaseHas('permits', [
             'id'               => $id,
@@ -54,6 +68,14 @@ class IssuanceTest extends ApiTestCase
             'cert_isolation'   => 'ISO-123',
             'cert_scaffolding' => 'SCF-456',
         ]);
+
+        // File sertifikat ikut tersimpan path-nya.
+        $permit = \App\Models\Permit::find($id);
+        $this->assertNotNull($permit->cert_isolation_file_path);
+        $this->assertNotNull($permit->cert_scaffolding_file_path);
+
+        // Sertifikat yang TIDAK ditandai diperlukan harus tetap kosong.
+        $this->assertNull($permit->cert_excavation);
 
         // Penanda bahwa Bagian 4 telah dilengkapi.
         $this->assertNotNull(
