@@ -123,6 +123,7 @@ class IssuanceTest extends ApiTestCase
         $this->postJson("/api/permits/{$id}/gas-tests", [
             'oksigen_persen' => 20.9,
             'lel_persen'     => 1.0,
+            'petugas_nama'   => 'Budi Santoso',
         ])->assertCreated();
 
         $this->assertDatabaseCount('gas_tests', 1);

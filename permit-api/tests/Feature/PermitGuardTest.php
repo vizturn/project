@@ -31,6 +31,7 @@ class PermitGuardTest extends ApiTestCase
         $this->actingAsRole('AGT');
         $this->postJson("/api/permits/{$id}/gas-tests", [
             'oksigen_persen' => 15.0, 'lel_persen' => 40.0,
+            'petugas_nama'   => 'Budi Santoso',
         ])->assertCreated();
 
         Sanctum::actingAs($pa);

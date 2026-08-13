@@ -53,6 +53,7 @@ class PermitLifecycleTest extends ApiTestCase
         $this->actingAsRole('AGT');
         $this->postJson("/api/permits/{$id}/gas-tests", [
             'oksigen_persen' => 20.9, 'lel_persen' => 1,
+            'petugas_nama'   => 'Budi Santoso',
         ])->assertCreated();
 
         // --- PA: lengkapi Bagian 3 (disetujui -> menunggu_penerbitan) ---

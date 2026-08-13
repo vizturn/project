@@ -21,6 +21,7 @@ class GasTestTest extends ApiTestCase
             'lel_persen'     => 1.0,
             'co_ppm'         => 5,
             'h2s_ppm'        => 2,
+            'petugas_nama'   => 'Budi Santoso',
         ])->assertCreated()
           ->assertJsonPath('data.oksigen_persen', '20.90')
           ->assertJsonPath('data.lel_persen', '1.00');
@@ -41,6 +42,7 @@ class GasTestTest extends ApiTestCase
         $this->postJson("/api/permits/{$id}/gas-tests", [
             'oksigen_persen' => 15.0,  // di bawah 19.5
             'lel_persen'     => 40.0,  // jauh di atas 10
+            'petugas_nama'   => 'Budi Santoso',
         ])->assertCreated();
 
         $this->assertDatabaseHas('gas_tests', [
@@ -57,6 +59,7 @@ class GasTestTest extends ApiTestCase
         $this->postJson("/api/permits/{$id}/gas-tests", [
             'oksigen_persen' => 20.9,
             'lel_persen'     => 1.0,
+            'petugas_nama'   => 'Budi Santoso',
         ])->assertCreated();
 
         $this->assertDatabaseCount('gas_tests', 1);
@@ -67,9 +70,12 @@ class GasTestTest extends ApiTestCase
         ['id' => $id] = $this->buatIzinDraft();
 
         $this->actingAsRole('AGT');
+        // petugas_nama diisi agar 422 yang diuji benar-benar berasal dari
+        // penjaga status (izin masih draft), bukan dari field wajib yang hilang.
         $this->postJson("/api/permits/{$id}/gas-tests", [
             'oksigen_persen' => 20.9,
             'lel_persen'     => 1.0,
+            'petugas_nama'   => 'Budi Santoso',
         ])->assertStatus(422);
     }
 
