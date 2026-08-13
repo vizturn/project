@@ -1,0 +1,31 @@
+# Konteks build dikirim seluruhnya ke Docker daemon sebelum build dimulai.
+# Tanpa file ini, vendor/ (ratusan MB) dan .git/ ikut terkirim setiap kali
+# build — lambat, dan vendor hasil host bisa bentrok dengan hasil
+# `composer install` di dalam image (arsitektur/ekstensi bisa berbeda,
+# apalagi karena partner memakai Windows sedangkan image ini Linux).
+
+vendor/
+node_modules/
+.git/
+.gitignore
+
+# Artefak runtime — harus dibuat ulang di dalam container, bukan diwarisi
+# dari mesin lokal. Cache config/route yang ikut terbawa adalah penyebab
+# klasik "kok perubahan .env tidak terbaca".
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*.php
+
+# File lingkungan lokal. Saat dev, .env tetap terbaca lewat bind mount
+# './permit-api:/var/www/html' di docker-compose.yml, jadi tidak perlu
+# ikut masuk ke dalam image (dan memang tidak boleh — berisi kredensial).
+.env
+.env.backup
+.env.production
+
+# Berkas editor / OS
+.DS_Store
+.idea/
+.vscode/
