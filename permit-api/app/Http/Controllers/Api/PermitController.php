@@ -17,6 +17,7 @@ use App\Models\Permit;
 use App\Models\PermitType;
 use App\Models\PsbForm;
 use App\Models\Revalidation;
+use App\Models\User;
 use App\Services\PermitService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -622,9 +623,60 @@ class PermitController extends Controller
             "PTW {$permit->nomor_izin} telah diterima PA. Pekerjaan berstatus AKTIF."
         );
 
+        // Notifikasi keselamatan kerja per peran (teks tanggung jawab sesuai
+        // SOP EMP-SHE-PCR-00.001-02 hal. 14-18). Dikirim in-app + email saat
+        // izin AKTIF sebagai pengingat tanggung jawab K3 masing-masing peran.
+        $this->notifKeselamatan($permit);
+
         return response()->json([
             'message' => 'PTW diterima. Izin berstatus AKTIF.',
             'data'    => $permit,
         ]);
+    }
+
+    /**
+     * Kirim notifikasi keselamatan kerja per peran saat izin AKTIF.
+     *
+     * Teks tanggung jawab diambil PERSIS dari SOP Sistem Izin Kerja
+     * EMP-SHE-PCR-00.001-02 (Revisi 02, 15 Juni 2025), halaman 14-18.
+     * TIDAK BOLEH diubah/dikarang — ini menyangkut keselamatan kerja (K3).
+     *
+     * Dikirim in-app + email agar paling pasti terbaca oleh:
+     * - PA, AA, IA (spesifik dari field izin)
+     * - AGT (dari gas_tests izin ini, bila ada)
+     * - Supervisor (semua user role SPV — karena lead_supervisor hanya teks nama)
+     */
+    private function notifKeselamatan(Permit $permit): void
+    {
+        $no = $permit->nomor_izin;
+
+        // Teks tanggung jawab per peran — sesuai SOP hal. 14-18.
+        $pesanPA = "PTW {$no} AKTIF. Sebagai Performing Authority: laksanakan pekerjaan sesuai persyaratan izin; hentikan pekerjaan dan kembalikan izin jika terjadi kondisi tidak aman atau tidak sesuai PTW; laporkan ke Issuing Authority setiap kejadian tak terduga; selesaikan pekerjaan dan pastikan area kerja bersih serta aman.";
+
+        $pesanAA = "PTW {$no} AKTIF. Sebagai Approval Authority: pastikan pekerjaan tetap sesuai rencana kerja dan persyaratan awal yang disetujui, serta berkoordinasi dengan Issuing Authority bila diperlukan.";
+
+        $pesanIA = "PTW {$no} AKTIF. Sebagai Issuing Authority: awasi pelaksanaan pekerjaan dari sisi izin kerja; kelola revalidasi bila pekerjaan tertunda; tutup izin kerja setelah memastikan pekerjaan selesai dan area kerja aman.";
+
+        $pesanAGT = "PTW {$no} AKTIF. Sebagai Authorized Gas Tester: lakukan pengujian kadar gas dengan alat yang terkalibrasi; isi dan tandatangani hasil pengujian; lakukan pengujian ulang sesuai interval yang disyaratkan atau bila terdapat kondisi tidak normal.";
+
+        $pesanSPV = "PTW {$no} AKTIF. Sebagai Supervisor: pastikan pekerjaan dilakukan sesuai PTW; lakukan live audit selama pekerjaan untuk memastikan kepatuhan terhadap prosedur keselamatan; koordinasikan Pre Job Safety Meeting (PJSM) sebelum pekerjaan dimulai.";
+
+        // PA, AA, IA — spesifik dari field izin (in-app + email).
+        $this->notif($permit->performing_authority_id, $permit->id, $pesanPA, true);
+        $this->notif($permit->approval_authority_id, $permit->id, $pesanAA, true);
+        $this->notif($permit->issuing_authority_id, $permit->id, $pesanIA, true);
+
+        // AGT — dari gas_tests izin ini (unik, bila ada). Bisa lebih dari satu AGT.
+        $agtIds = $permit->gasTests()->whereNotNull('agt_id')->pluck('agt_id')->unique();
+        foreach ($agtIds as $agtId) {
+            $this->notif($agtId, $permit->id, $pesanAGT, true);
+        }
+
+        // Supervisor — semua user ber-role SPV (lead_supervisor hanya teks nama,
+        // tidak terhubung ke akun tertentu).
+        $spvIds = User::whereHas('roles', fn ($q) => $q->where('kode_role', 'SPV'))->pluck('id');
+        foreach ($spvIds as $spvId) {
+            $this->notif($spvId, $permit->id, $pesanSPV, true);
+        }
     }
 }
