@@ -45,6 +45,15 @@ services:
       retries: 3
       timeout: 5s
 
+  # Mailpit — SMTP server + web UI untuk menguji email di lokal (pengganti Mailtrap).
+  # SMTP di port 1025 (dipakai Laravel), web UI di http://localhost:8025 (lihat email).
+  mailpit:
+    image: 'axllent/mailpit:latest'
+    ports:
+      - '${FORWARD_MAILPIT_PORT:-1025}:1025'
+      - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
+    networks: [permit]
+
 networks:
   permit:
     driver: bridge

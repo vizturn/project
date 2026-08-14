@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // STEP 19 — cek validitas izin tiap menit
 Schedule::command('permits:check-validity')->everyMinute();
+
+// Rekap mingguan permit ke tim SHE — setiap Senin pukul 07:00
+Schedule::command('permits:weekly-recap')->weeklyOn(1, '07:00');
