@@ -17,10 +17,13 @@ class TestUsersSeeder extends Seeder
     {
         $users = [
             ['email' => 'pa@permit.test',  'name' => 'PA Test',  'role' => 'PA',  'jabatan' => 'Performing Authority'],
+            ['email' => 'Naura@permit.test',  'name' => 'Naura',  'role' => 'PA',  'jabatan' => 'Performing Authority'],
             ['email' => 'pa1@permit.test',  'name' => 'PA1 Test',  'role' => 'PA',  'jabatan' => 'Performing Authority'],
             ['email' => 'aa@permit.test',  'name' => 'AA Test',  'role' => 'AA',  'jabatan' => 'Approval Authority'],
+            ['email' => 'Alvisto@permit.test',  'name' => 'Alvisto',  'role' => 'AA',  'jabatan' => 'Approval Authority'],
             ['email' => 'aa1@permit.test',  'name' => 'AA1 Test',  'role' => 'AA',  'jabatan' => 'Approval Authority'],
             ['email' => 'ia@permit.test',  'name' => 'IA Test',  'role' => 'IA',  'jabatan' => 'Issuing Authority'],
+            ['email' => 'Naufal@permit.test',  'name' => 'Naufal',  'role' => 'IA',  'jabatan' => 'Issuing Authority'],
             ['email' => 'ia2@permit.test',  'name' => 'IA2 Test',  'role' => 'IA',  'jabatan' => 'Issuing Authority'],
             ['email' => 'agt@permit.test', 'name' => 'AGT Test', 'role' => 'AGT', 'jabatan' => 'Authorized Gas Tester'],
             ['email' => 'pj@permit.test',  'name' => 'PJ Test',  'role' => 'PJ',  'jabatan' => 'Petugas Jaga'],
