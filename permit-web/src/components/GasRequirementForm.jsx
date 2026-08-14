@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Button from "./Button";
 import { FlaskConical } from "lucide-react";
+import { toast } from "sonner";
 
 /**
  * Bagian 5 — IA menetapkan pengujian kadar gas yang wajib dilaksanakan
@@ -31,9 +32,18 @@ export default function GasRequirementForm({ awal, onSubmit, busy }) {
   }, [form]);
 
   const kirim = async () => {
+    // Periode ulang wajib angka 1–72 jam bila ada gas yang diuji.
+    const periode = String(form.gas_periode_ulang).trim();
+    if (adaUji) {
+      const jam = Number(periode);
+      if (!periode || !Number.isInteger(jam) || jam < 1 || jam > 72) {
+        toast.error("Periode pengetesan ulang wajib diisi berupa angka 1–72 jam.");
+        return;
+      }
+    }
     const ok = await onSubmit({
       ...form,
-      gas_periode_ulang: form.gas_periode_ulang.trim() || null,
+      gas_periode_ulang: periode || null,
     });
     if (ok) {
       lewatiRenderPertama.current = true;
@@ -75,14 +85,18 @@ export default function GasRequirementForm({ awal, onSubmit, busy }) {
 
       <div>
         <label className="block text-sm text-slate-600 mb-1">
-          Periode pengetesan ulang {adaUji && <span className="text-red-500">*</span>}
+          Periode pengetesan ulang (jam) {adaUji && <span className="text-red-500">*</span>}
         </label>
         <input
+          type="number"
+          min={1}
+          max={72}
           value={form.gas_periode_ulang}
           onChange={(e) => setForm((p) => ({ ...p, gas_periode_ulang: e.target.value }))}
-          placeholder="Mis. setiap 2 jam"
+          placeholder="Mis. 2 (artinya setiap 2 jam)"
           className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
         />
+        <p className="text-xs text-slate-400 mt-1">Diisi dalam satuan jam (1–72). Contoh: 2 berarti uji ulang setiap 2 jam.</p>
       </div>
 
       <Button onClick={kirim} busy={busy} variant={sudahDisimpan ? "saved" : "primary"}>

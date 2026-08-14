@@ -102,7 +102,7 @@ class IssuanceTest extends ApiTestCase
             'gas_uji_flammable' => true,
             'gas_uji_oksigen'   => true,
             'gas_uji_beracun'   => false,
-            'gas_periode_ulang' => 'setiap 2 jam',
+            'gas_periode_ulang' => 2,
         ])->assertOk();
 
         $this->assertDatabaseHas('permits', [
@@ -110,7 +110,7 @@ class IssuanceTest extends ApiTestCase
             'gas_uji_flammable' => 1,
             'gas_uji_oksigen'   => 1,
             'gas_uji_beracun'   => 0,
-            'gas_periode_ulang' => 'setiap 2 jam',
+            'gas_periode_ulang' => 2,
         ]);
     }
 

@@ -22,7 +22,7 @@ class StoreGasRequirementRequest extends FormRequest
             'gas_uji_flammable' => ['required', 'boolean'],
             'gas_uji_oksigen'   => ['required', 'boolean'],
             'gas_uji_beracun'   => ['required', 'boolean'],
-            'gas_periode_ulang' => ['nullable', 'string', 'max:100'],
+            'gas_periode_ulang' => ['nullable', 'integer', 'min:1', 'max:72'],
         ];
     }
 
@@ -35,7 +35,7 @@ class StoreGasRequirementRequest extends FormRequest
                 || $this->boolean('gas_uji_beracun');
 
             if ($adaUji && ! $this->filled('gas_periode_ulang')) {
-                $v->errors()->add('gas_periode_ulang', 'Periode pengetesan ulang wajib diisi bila ada gas yang diuji.');
+                $v->errors()->add('gas_periode_ulang', 'Periode pengetesan ulang (jam) wajib diisi bila ada gas yang diuji.');
             }
         });
     }

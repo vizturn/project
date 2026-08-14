@@ -692,7 +692,7 @@ export default function PermitDetailPage() {
                   )}
                 </div>
                 <p className="text-sm text-slate-600">
-                  <span className="font-medium">Periode pengetesan ulang:</span> {permit.gas_periode_ulang || "-"}
+                  <span className="font-medium">Periode pengetesan ulang:</span> {permit.gas_periode_ulang ? `${permit.gas_periode_ulang} jam` : "-"}
                 </p>
               </div>
             )}

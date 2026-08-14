@@ -299,7 +299,7 @@ export default function PermitPrintPage() {
           <tbody>
             <tr>
               <td style={{ width: "34%", verticalAlign: "middle", fontSize: 9.5 }}>
-                <b>IA</b> menetapkan bahwa pengetesan kadar gas berikut ini harus dilaksanakan oleh petugas <b>Authorized Gas Tester (AGT)</b> dan meminta pengetesan ulang dilakukan dengan periode berikut [{permit.gas_periode_ulang ?? "……"}] dan hasilnya dicatat pada lembar gas test di belakang permit ini.
+                <b>IA</b> menetapkan bahwa pengetesan kadar gas berikut ini harus dilaksanakan oleh petugas <b>Authorized Gas Tester (AGT)</b> dan meminta pengetesan ulang dilakukan dengan periode berikut [{permit.gas_periode_ulang ? `${permit.gas_periode_ulang} jam` : "……"}] dan hasilnya dicatat pada lembar gas test di belakang permit ini.
               </td>
               <td style={{ width: "34%", padding: 0 }}>
                 <div style={{ textAlign: "center", fontWeight: 700, padding: "3px", borderBottom: "1px solid #bbb" }}>Hasil Pengetesan Gas Awal</div>
