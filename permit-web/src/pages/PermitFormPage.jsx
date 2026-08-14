@@ -170,7 +170,7 @@ export default function PermitFormPage() {
             <p className="text-xs text-slate-500 mb-4">Terkait penapisan #{screeningIdParam}</p>
           )}
 
-          <label className="block text-sm text-slate-600 mb-1">Jenis Izin * (boleh lebih dari satu)</label>
+          <label className="block text-sm text-slate-600 mb-1">Jenis Izin <span className="text-red-500">*</span> (boleh lebih dari satu)</label>
           <p className="text-xs text-slate-500 mb-2">
             Centang semua jenis yang tercakup dalam pekerjaan ini. Contoh: pengelasan di ketinggian → Hot Work + Work at Height.
           </p>
@@ -190,7 +190,7 @@ export default function PermitFormPage() {
             ))}
           </div>
 
-          <label className="block text-sm text-slate-600 mb-1">Lokasi Pekerjaan *</label>
+          <label className="block text-sm text-slate-600 mb-1">Lokasi Pekerjaan <span className="text-red-500">*</span></label>
           <input
             value={form.lokasi}
             onChange={(e) => setField("lokasi", e.target.value)}
@@ -206,7 +206,7 @@ export default function PermitFormPage() {
             placeholder="Nama Lead/Supervisor penanggung jawab pekerjaan"
           />
 
-          <label className="block text-sm text-slate-600 mb-1">Deskripsi Pekerjaan *</label>
+          <label className="block text-sm text-slate-600 mb-1">Deskripsi Pekerjaan <span className="text-red-500">*</span></label>
           <textarea
             value={form.deskripsi_pekerjaan}
             onChange={(e) => setField("deskripsi_pekerjaan", e.target.value)}
@@ -230,7 +230,7 @@ export default function PermitFormPage() {
             <p className="text-sm font-semibold text-slate-700 mb-1">Tujukan Persetujuan Kepada</p>
             <p className="text-xs text-slate-500 mb-3">Izin ini hanya dapat diproses oleh AA & IA yang Anda pilih.</p>
 
-            <label className="block text-sm text-slate-600 mb-1">Approval Authority (AA) *</label>
+            <label className="block text-sm text-slate-600 mb-1">Approval Authority (AA) <span className="text-red-500">*</span></label>
             <select value={form.approval_authority_id} onChange={(e) => setField("approval_authority_id", e.target.value)}
               className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand">
               <option value="">— Pilih AA —</option>
@@ -239,7 +239,7 @@ export default function PermitFormPage() {
               ))}
             </select>
 
-            <label className="block text-sm text-slate-600 mb-1">Issuing Authority (IA) *</label>
+            <label className="block text-sm text-slate-600 mb-1">Issuing Authority (IA) <span className="text-red-500">*</span></label>
             <select value={form.issuing_authority_id} onChange={(e) => setField("issuing_authority_id", e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand">
               <option value="">— Pilih IA —</option>
