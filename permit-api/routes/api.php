@@ -149,6 +149,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     /* ===== STEP 20 — Audit Log & Rekap (SHE/ADM) ===== */
     Route::middleware('role:SHE,ADM')->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
+        Route::get('/audit-logs/export', [AuditLogController::class, 'export']);
         Route::get('/reports/summary', [ReportController::class, 'summary']);
     });
 
