@@ -7,6 +7,9 @@ import { createPermit, updatePermit, getPermit } from "../services/permitService
 import { toast } from "sonner";
 import { FilePlus2, PencilLine, ArrowLeft } from "lucide-react";
 
+// Warna penanda jenis izin (seragam dengan dashboard, daftar izin, dan lembar cetak).
+const WARNA_JENIS = { HWP: "#b91c1c", CWP: "#1d4ed8", CSE: "#c2410c", WAH: "#475569" };
+
 export default function PermitFormPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -144,128 +147,167 @@ export default function PermitFormPage() {
     return <div className="min-h-screen flex items-center justify-center text-slate-500">Memuat...</div>;
   }
 
+  const kelasInput =
+    "w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand";
+  const kelasLabel = "block text-sm font-medium text-slate-700 mb-1.5";
+  const wajib = <span className="text-red-500">*</span>;
+
   return (
     <div className="min-h-screen bg-slate-100 p-6">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <button
           onClick={() => navigate(isEdit ? `/permits/${id}` : "/permits")}
-          className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4"
+          className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-3"
         >
-          <ArrowLeft size={16} /> {isEdit ? "Kembali ke Detail" : "Daftar Izin"}
+          <ArrowLeft size={15} /> {isEdit ? "Kembali ke Detail" : "Daftar Izin"}
         </button>
 
-        <div className="bg-white rounded-xl shadow p-6">
-          <div className="flex items-center gap-2 mb-4">
-            {isEdit ? (
-              <PencilLine className="text-emerald-600" size={22} />
-            ) : (
-              <FilePlus2 className="text-emerald-600" size={22} />
-            )}
-            <h1 className="text-lg font-bold text-slate-800">
-              {isEdit ? "Ubah Izin Kerja (Draft)" : "Pengajuan Izin Kerja"}
+        {/* Kepala halaman */}
+        <div className="flex items-center gap-2.5 mb-5">
+          <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-brand-50 text-brand">
+            {isEdit ? <PencilLine size={20} /> : <FilePlus2 size={20} />}
+          </span>
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">
+              {isEdit ? "Ubah Izin Kerja" : "Pengajuan Izin Kerja"}
             </h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {isEdit
+                ? "Perubahan hanya dapat dilakukan selama izin berstatus draft."
+                : "Lengkapi uraian pekerjaan, lalu tujukan kepada AA dan IA."}
+              {!isEdit && screeningIdParam && ` · Terkait penapisan #${screeningIdParam}`}
+            </p>
           </div>
+        </div>
 
-          {!isEdit && screeningIdParam && (
-            <p className="text-xs text-slate-500 mb-4">Terkait penapisan #{screeningIdParam}</p>
-          )}
-
-          <label className="block text-sm text-slate-600 mb-1">Jenis Izin <span className="text-red-500">*</span> (boleh lebih dari satu)</label>
-          <p className="text-xs text-slate-500 mb-2">
-            Centang semua jenis yang tercakup dalam pekerjaan ini. Contoh: pengelasan di ketinggian → Hot Work + Work at Height.
+        {/* ===== Jenis izin ===== */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4">
+          <label className={kelasLabel}>Jenis Izin {wajib}</label>
+          <p className="text-xs text-slate-500 mb-3">
+            Centang semua jenis yang tercakup dalam pekerjaan ini. Contoh: pengelasan di ketinggian
+            memerlukan Hot Work sekaligus Work at Height.
           </p>
-          <div className="mb-4 border border-slate-200 rounded-lg divide-y divide-slate-100">
-            {types.map((t) => (
-              <label key={t.id} className="flex items-start gap-3 p-3 hover:bg-slate-50 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 accent-emerald-600"
-                  checked={!!jenisDipilih[t.id]}
-                  onChange={() => setJenisDipilih((v) => ({ ...v, [t.id]: !v[t.id] }))}
-                />
-                <span className="text-sm text-slate-700">
-                  <span className="font-medium">{t.kode}</span> — {t.nama}
-                </span>
-              </label>
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {types.map((t) => {
+              const dipilih = !!jenisDipilih[t.id];
+              const warna = WARNA_JENIS[t.kode] ?? "#64748b";
+              return (
+                <label
+                  key={t.id}
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                    dipilih ? "bg-slate-50 shadow-sm" : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                  style={dipilih ? { borderColor: warna, boxShadow: `inset 3px 0 0 ${warna}` } : undefined}
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    style={{ accentColor: warna }}
+                    checked={dipilih}
+                    onChange={() => setJenisDipilih((v) => ({ ...v, [t.id]: !v[t.id] }))}
+                  />
+                  <span className="min-w-0">
+                    <span
+                      className="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded text-white"
+                      style={{ background: warna }}
+                    >
+                      {t.kode}
+                    </span>
+                    <span className="block text-sm text-slate-700 mt-1">{t.nama}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ===== Uraian pekerjaan ===== */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4">
+          <h2 className="font-bold text-slate-800">Uraian Pekerjaan</h2>
+          <p className="text-xs text-slate-400 mt-0.5 mb-4">Keterangan pekerjaan yang akan dilaksanakan</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={kelasLabel}>Lokasi Pekerjaan {wajib}</label>
+              <input value={form.lokasi} onChange={(e) => setField("lokasi", e.target.value)}
+                className={kelasInput} placeholder="Mis. Area Stasiun Pengumpul A" />
+            </div>
+            <div>
+              <label className={kelasLabel}>Nama Lead/Supervisor</label>
+              <input value={form.lead_supervisor} onChange={(e) => setField("lead_supervisor", e.target.value)}
+                className={kelasInput} placeholder="Penanggung jawab pekerjaan" />
+            </div>
           </div>
 
-          <label className="block text-sm text-slate-600 mb-1">Lokasi Pekerjaan <span className="text-red-500">*</span></label>
-          <input
-            value={form.lokasi}
-            onChange={(e) => setField("lokasi", e.target.value)}
-            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-            placeholder="Mis. Area Stasiun Pengumpul A"
-          />
-
-          <label className="block text-sm text-slate-600 mb-1">Nama Lead/Supervisor</label>
-          <input
-            value={form.lead_supervisor}
-            onChange={(e) => setField("lead_supervisor", e.target.value)}
-            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-            placeholder="Nama Lead/Supervisor penanggung jawab pekerjaan"
-          />
-
-          <label className="block text-sm text-slate-600 mb-1">Deskripsi Pekerjaan <span className="text-red-500">*</span></label>
-          <textarea
-            value={form.deskripsi_pekerjaan}
-            onChange={(e) => setField("deskripsi_pekerjaan", e.target.value)}
-            rows={3}
-            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-            placeholder="Uraian singkat pekerjaan"
-          />
-
-          <label className="block text-sm text-slate-600 mb-1">Estimasi Durasi (jam) <span className="text-red-500">*</span></label>
-          <input
-            type="number"
-            min={1}
-            max={72}
-            value={form.durasi}
-            onChange={(e) => setField("durasi", e.target.value)}
-            className="w-full mb-6 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-            placeholder="Maks. 72 jam"
-          />
-
-          <div className="border-t border-slate-100 pt-4 mb-4">
-            <p className="text-sm font-semibold text-slate-700 mb-1">Tujukan Persetujuan Kepada</p>
-            <p className="text-xs text-slate-500 mb-3">Izin ini hanya dapat diproses oleh AA & IA yang Anda pilih.</p>
-
-            <label className="block text-sm text-slate-600 mb-1">Approval Authority (AA) <span className="text-red-500">*</span></label>
-            <select value={form.approval_authority_id} onChange={(e) => setField("approval_authority_id", e.target.value)}
-              className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand">
-              <option value="">— Pilih AA —</option>
-              {aaList.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}{u.jabatan ? ` — ${u.jabatan}` : ""}</option>
-              ))}
-            </select>
-
-            <label className="block text-sm text-slate-600 mb-1">Issuing Authority (IA) <span className="text-red-500">*</span></label>
-            <select value={form.issuing_authority_id} onChange={(e) => setField("issuing_authority_id", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand">
-              <option value="">— Pilih IA —</option>
-              {iaList.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}{u.jabatan ? ` — ${u.jabatan}` : ""}</option>
-              ))}
-            </select>
+          <div className="mt-4">
+            <label className={kelasLabel}>Deskripsi Pekerjaan {wajib}</label>
+            <textarea value={form.deskripsi_pekerjaan} onChange={(e) => setField("deskripsi_pekerjaan", e.target.value)}
+              rows={3} className={kelasInput} placeholder="Uraian singkat pekerjaan" />
           </div>
 
-          <label className="block text-sm text-slate-600 mb-1">Reference WO (opsional)</label>
-          <input
-            value={form.referensi_wo}
-            onChange={(e) => setField("referensi_wo", e.target.value)}
-            className="w-full mb-4 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-            placeholder="Ketik nomor/referensi WO"
-          />
+          <div className="mt-4 sm:w-1/2">
+            <label className={kelasLabel}>Estimasi Durasi (jam) {wajib}</label>
+            <input type="number" min={1} max={72} value={form.durasi}
+              onChange={(e) => setField("durasi", e.target.value)}
+              className={kelasInput} placeholder="Maks. 72 jam" />
+            <p className="text-xs text-slate-400 mt-1">Diisi dalam satuan jam, maksimal 72 jam.</p>
+          </div>
+        </div>
 
-          <label className="block text-sm text-slate-600 mb-1">Equipment ID (opsional)</label>
-          <input
-            value={form.referensi_peralatan}
-            onChange={(e) => setField("referensi_peralatan", e.target.value)}
-            className="w-full mb-6 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-            placeholder="Ketik Equipment ID"
-          />
+        {/* ===== Tujukan persetujuan ===== */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4">
+          <h2 className="font-bold text-slate-800">Tujukan Persetujuan Kepada</h2>
+          <p className="text-xs text-slate-400 mt-0.5 mb-4">
+            Izin ini hanya dapat diproses oleh Approval Authority dan Issuing Authority yang Anda pilih.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={kelasLabel}>Approval Authority (AA) {wajib}</label>
+              <select value={form.approval_authority_id}
+                onChange={(e) => setField("approval_authority_id", e.target.value)} className={kelasInput}>
+                <option value="">— Pilih AA —</option>
+                {aaList.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}{u.jabatan ? ` — ${u.jabatan}` : ""}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={kelasLabel}>Issuing Authority (IA) {wajib}</label>
+              <select value={form.issuing_authority_id}
+                onChange={(e) => setField("issuing_authority_id", e.target.value)} className={kelasInput}>
+                <option value="">— Pilih IA —</option>
+                {iaList.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}{u.jabatan ? ` — ${u.jabatan}` : ""}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
 
-          <Button onClick={submit} disabled={saving} className="w-full">
+        {/* ===== Referensi opsional ===== */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4">
+          <h2 className="font-bold text-slate-800">Referensi Pendukung</h2>
+          <p className="text-xs text-slate-400 mt-0.5 mb-4">Bagian ini bersifat opsional</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={kelasLabel}>Reference WO</label>
+              <input value={form.referensi_wo} onChange={(e) => setField("referensi_wo", e.target.value)}
+                className={kelasInput} placeholder="Nomor atau referensi WO" />
+            </div>
+            <div>
+              <label className={kelasLabel}>Equipment ID</label>
+              <input value={form.referensi_peralatan} onChange={(e) => setField("referensi_peralatan", e.target.value)}
+                className={kelasInput} placeholder="Kode peralatan" />
+            </div>
+          </div>
+        </div>
+
+        {/* ===== Aksi ===== */}
+        <div className="flex items-center justify-between gap-3 bg-white rounded-xl border border-slate-200 p-5">
+          <p className="text-xs text-slate-500">
+            Tanda {wajib} menunjukkan kolom yang wajib diisi.
+          </p>
+          <Button onClick={submit} disabled={saving}>
             {saving ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Buat Pengajuan (Draft)"}
           </Button>
         </div>
