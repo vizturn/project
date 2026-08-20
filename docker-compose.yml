@@ -39,6 +39,9 @@ services:
       MYSQL_PASSWORD: '${DB_PASSWORD:-password}'
     volumes:
       - 'permit-mysql:/var/lib/mysql'
+      # Skrip yang dijalankan sekali saat basis data pertama kali dibentuk.
+      # Membuat basis data khusus pengujian otomatis (permit_she_test).
+      - './docker/mysql/init-test-db.sql:/docker-entrypoint-initdb.d/10-init-test-db.sql:ro'
     networks: [permit]
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD:-password}"]
