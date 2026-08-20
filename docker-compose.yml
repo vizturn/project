@@ -16,6 +16,28 @@ services:
       mysql:
         condition: service_healthy
 
+  # Penjadwal tugas — menjalankan perintah terjadwal yang terdaftar pada
+  # routes/console.php, yaitu pemeriksaan masa berlaku izin dan pengiriman
+  # rekapitulasi mingguan kepada tim SHE.
+  #
+  # Memakai citra yang sama dengan layanan api, namun proses utamanya adalah
+  # `schedule:work` sehingga berjalan terus-menerus dan memeriksa jadwal setiap
+  # menit. Layanan ini tidak membuka porta karena tidak melayani permintaan.
+  scheduler:
+    build:
+      context: ./permit-api
+      dockerfile: Dockerfile
+    image: permit-api/php83
+    command: php artisan schedule:work
+    volumes:
+      - './permit-api:/var/www/html'
+      - 'api-vendor:/var/www/html/vendor'
+    networks: [permit]
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+
   web:
     image: node:22-alpine
     working_dir: /app
