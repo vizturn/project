@@ -20,8 +20,12 @@ import CseAccessLogForm from "../components/CseAccessLogForm";
 import PsbFilesSection from "../components/PsbFilesSection";
 import { submitHazards, reviewHazards } from "../services/hazardService";
 import { toast } from "sonner";
-import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine, History, Printer, FileStack } from "lucide-react";
+import { ArrowLeft, Send, CheckCircle2, XCircle, FlaskConical, FileCheck2, RotateCcw, RefreshCw, CheckCheck, Lock, ClipboardCheck, FileText, PencilLine, History, Printer, FileStack, AlertTriangle } from "lucide-react";
 import Section from "../components/Section";
+import { statusLabel } from "../lib/status";
+
+// Warna penanda jenis izin (mengikuti warna lembar cetak manual).
+const WARNA_JENIS = { HWP: "#b91c1c", CWP: "#1d4ed8", CSE: "#c2410c", WAH: "#475569" };
 
 export default function PermitDetailPage() {
   const { id } = useParams();
@@ -273,29 +277,114 @@ export default function PermitDetailPage() {
     (hasRole("PA") || hasRole("IA") || hasRole("AA"));
   const fmt = (d) => (d ? new Date(d).toLocaleString("id-ID") : "-");
 
+  /**
+   * Tanggung jawab pengguna pada izin ini, sesuai peran dan status saat ini.
+   * Teks mengacu pada prosedur izin kerja yang berlaku (sama dengan yang
+   * dipakai pada notifikasi keselamatan saat izin aktif).
+   */
+  const tindakanSaya = (() => {
+    const sayaPA = permit.performing_authority_id === user?.id;
+    const sayaAA = permit.approval_authority_id === user?.id;
+    const sayaIA = permit.issuing_authority_id === user?.id;
+
+    if (sayaPA && S === "disetujui") return { peran: "Sebagai Performing Authority", butir: [
+      "Lengkapi identifikasi bahaya dan pengendaliannya.",
+      "Unggah dokumen pendukung yang disyaratkan.",
+      "Pastikan seluruh Prosedur Selamat Bekerja telah disiapkan.",
+    ]};
+    if (sayaIA && S === "menunggu_penerbitan") return { peran: "Sebagai Issuing Authority", butir: [
+      "Periksa kelengkapan informasi dan identifikasi bahaya dari PA.",
+      "Tetapkan kebutuhan pengujian kadar gas bila diperlukan.",
+      "Terbitkan izin apabila seluruh persyaratan telah terpenuhi.",
+    ]};
+    if (sayaAA && S === "menunggu_approval") return { peran: "Sebagai Approval Authority", butir: [
+      "Tinjau rencana kerja dan personel yang diusulkan.",
+      "Tetapkan Prosedur Selamat Bekerja yang berlaku.",
+      "Berikan persetujuan atau penolakan atas pengajuan ini.",
+    ]};
+    if (sayaPA && S === "menunggu_penerimaan") return { peran: "Sebagai Performing Authority", butir: [
+      "Baca dan pahami seluruh kondisi yang tertuang dalam izin ini.",
+      "Terima izin sebelum pekerjaan dimulai.",
+    ]};
+    if (sayaPA && S === "aktif") return { peran: "Sebagai Performing Authority", butir: [
+      permit.gas_periode_ulang
+        ? `Pastikan pengujian ulang gas dilakukan setiap ${permit.gas_periode_ulang} jam.`
+        : "Laksanakan pekerjaan sesuai persyaratan izin.",
+      "Hentikan pekerjaan dan kembalikan izin bila kondisi tidak aman.",
+      "Laporkan setiap kejadian tak terduga kepada Issuing Authority.",
+      "Setelah selesai, pastikan area kerja aman dan bersih.",
+    ]};
+    if (sayaIA && S === "aktif") return { peran: "Sebagai Issuing Authority", butir: [
+      "Awasi pelaksanaan pekerjaan dari sisi izin kerja.",
+      "Kelola revalidasi apabila pekerjaan tertunda.",
+    ]};
+    if (sayaIA && S === "selesai") return { peran: "Sebagai Issuing Authority", butir: [
+      "Periksa pekerjaan yang telah dinyatakan selesai oleh PA.",
+      "Tutup izin setelah memastikan area kerja aman.",
+    ]};
+    if (sayaIA && S === "ditunda") return { peran: "Sebagai Issuing Authority", butir: [
+      "Izin sedang tertunda. Lakukan revalidasi bila pekerjaan akan dilanjutkan.",
+    ]};
+    return null;
+  })();
+
   return (
     <div className="min-h-screen bg-slate-100 p-6">
-      <div className="max-w-3xl mx-auto space-y-4">
-        <div className="flex items-center justify-between">
-          <button onClick={() => navigate("/permits")} className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900">
-            <ArrowLeft size={16} /> Daftar Izin
-          </button>
-          {["aktif", "selesai", "closed"].includes(S) && (
-            <button
-              onClick={() => navigate(`/permits/${id}/print`)}
-              className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark transition"
-            >
-              <Printer size={16} /> Cetak Lembar PTW
-            </button>
-          )}
+      <div className="max-w-[1240px] mx-auto">
+        {/* Jejak navigasi */}
+        <button onClick={() => navigate("/permits")} className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-3">
+          <ArrowLeft size={15} /> Daftar Izin
+        </button>
+
+        {/* Kepala halaman: judul, jenis, status, aksi */}
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-slate-800">{permit.nomor_izin}</h1>
+            <div className="flex flex-wrap items-center gap-2 mt-1.5 text-sm text-slate-500">
+              {jenisIzin.map((t) => (
+                <span key={t.id} className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white"
+                  style={{ background: WARNA_JENIS[t.kode] ?? "#64748b" }}>{t.kode}</span>
+              ))}
+              <span className="truncate">{permit.lokasi || "-"}</span>
+              {permit.durasi && <span>· {permit.durasi} jam</span>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge status={S} />
+            {["aktif", "selesai", "closed"].includes(S) && (
+              <button
+                onClick={() => navigate(`/permits/${id}/print`)}
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark transition"
+              >
+                <Printer size={16} /> Cetak Lembar PTW
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Dua kolom: isi utama (kiri) dan panel ringkas (kanan) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+        <div className="lg:col-span-2 min-w-0 space-y-4">
+
+        {/* Tindakan yang menjadi tanggung jawab pengguna pada izin ini */}
+        {tindakanSaya && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={17} className="text-amber-600" />
+              <h2 className="font-bold text-amber-900">Tindakan Anda</h2>
+            </div>
+            <p className="text-xs text-amber-700 mt-0.5 mb-2.5">{tindakanSaya.peran}</p>
+            <ul className="text-sm text-amber-900 space-y-1.5">
+              {tindakanSaya.butir.map((b, i) => (
+                <li key={i} className="flex gap-2"><span className="text-amber-500">•</span><span>{b}</span></li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Ringkasan izin */}
         <div className="bg-white rounded-xl shadow p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-lg font-bold text-slate-800">{permit.nomor_izin}</h1>
-            <StatusBadge status={S} />
-          </div>
+          <h2 className="font-bold text-slate-800 mb-3">Informasi Pekerjaan</h2>
           <dl className="text-sm text-slate-600 grid grid-cols-2 gap-2">
             <div className="col-span-2">
               <span className="font-medium">Jenis Izin:</span>{" "}
@@ -313,9 +402,6 @@ export default function PermitDetailPage() {
 <div><span className="font-medium">Durasi:</span> {permit.durasi ? `${permit.durasi} jam` : "-"}</div>
             <div><span className="font-medium">Reference WO:</span> {permit.referensi_wo || "-"}</div>
             <div><span className="font-medium">Equipment ID:</span> {permit.referensi_peralatan || "-"}</div>
-            <div><span className="font-medium">PA:</span> {permit.performing_authority?.name ?? "-"}</div>
-            <div><span className="font-medium">AA (dituju):</span> {permit.approval_authority?.name ?? "-"}</div>
-            <div><span className="font-medium">IA (dituju):</span> {permit.issuing_authority?.name ?? "-"}</div>
             <div><span className="font-medium">Terbit:</span> {fmt(permit.tgl_terbit)}</div>
             <div><span className="font-medium">Kadaluarsa:</span> {fmt(permit.tgl_kadaluarsa)}</div>
           </dl>
@@ -1266,6 +1352,67 @@ export default function PermitDetailPage() {
             </ul>
           </Section>
         )}
+        </div>
+
+        {/* ===== Panel kanan: lini masa, pihak terkait, tenggat ===== */}
+        <div className="min-w-0 space-y-4">
+          {/* Lini masa izin */}
+          {permit.status_histories?.length > 0 && (
+            <div className="bg-white rounded-xl shadow p-5">
+              <h2 className="font-bold text-slate-800">Lini Masa Izin</h2>
+              <p className="text-xs text-slate-400 mt-0.5 mb-4">Riwayat perubahan status</p>
+              <ol className="relative">
+                {[...permit.status_histories].reverse().map((h, i, arr) => (
+                  <li key={h.id} className="relative pl-6 pb-4 last:pb-0">
+                    {i < arr.length - 1 && <span className="absolute left-[5px] top-3.5 bottom-0 w-px bg-slate-200" />}
+                    <span className="absolute left-0 top-1 w-2.5 h-2.5 rounded-full bg-brand ring-2 ring-white" />
+                    <p className="text-sm font-medium text-slate-700 leading-tight">{statusLabel(h.status)}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {h.changed_by?.name ? `${h.changed_by.name} · ` : ""}{fmt(h.changed_at)}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Pihak terkait */}
+          <div className="bg-white rounded-xl shadow p-5">
+            <h2 className="font-bold text-slate-800">Pihak Terkait</h2>
+            <p className="text-xs text-slate-400 mt-0.5 mb-3">Peran pada izin ini</p>
+            {[
+              ["Performing Authority", permit.performing_authority?.name, permit.performing_authority_id],
+              ["Approval Authority", permit.approval_authority?.name, permit.approval_authority_id],
+              ["Issuing Authority", permit.issuing_authority?.name, permit.issuing_authority_id],
+            ].map(([peran, nama, uid]) => (
+              <div key={peran} className="flex items-start justify-between py-2 border-b border-slate-100 last:border-0">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{peran}</p>
+                  <p className="text-sm text-slate-700 truncate">{nama ?? "-"}</p>
+                </div>
+                {uid === user?.id && <span className="text-xs text-brand font-medium shrink-0 ml-2">Anda</span>}
+              </div>
+            ))}
+          </div>
+
+          {/* Masa berlaku */}
+          {(permit.tgl_terbit || permit.tgl_kadaluarsa) && (
+            <div className="bg-white rounded-xl shadow p-5">
+              <h2 className="font-bold text-slate-800">Masa Berlaku</h2>
+              <p className="text-xs text-slate-400 mt-0.5 mb-3">Waktu penerbitan dan batas berlaku</p>
+              <div className="flex justify-between py-1.5 text-sm">
+                <span className="text-slate-500">Terbit</span>
+                <span className="text-slate-700">{fmt(permit.tgl_terbit)}</span>
+              </div>
+              <div className="flex justify-between py-1.5 text-sm">
+                <span className="text-slate-500">Kadaluarsa</span>
+                <span className={S === "aktif" && permit.tgl_kadaluarsa && new Date(permit.tgl_kadaluarsa) - new Date() < 12 * 36e5
+                  ? "text-red-600 font-semibold" : "text-slate-700"}>{fmt(permit.tgl_kadaluarsa)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+        </div>
       </div>
     </div>
   );

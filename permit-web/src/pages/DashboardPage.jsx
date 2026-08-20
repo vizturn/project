@@ -2,327 +2,238 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { getSummary, getMySummary } from "../services/reportService";
+import { getMySummary } from "../services/reportService";
 import { statusLabel } from "../lib/status";
 import {
-  LogOut, ShieldCheck, ClipboardList, FileText, LayoutGrid,
-  Bell, ScrollText, BarChart3, FileStack,
-  Clock, CircleCheck, CircleX, CircleDot, PauseCircle,
-  AlertTriangle, CheckCheck, Lock,
+  CheckCircle2, Clock, AlertTriangle, FileStack,
+  ClipboardCheck, Plus, ArrowRight, Timer,
 } from "lucide-react";
 
-// Peta status -> komponen ikon (Opsi B: ikon berwarna per status).
-const IKON_STATUS = {
-  draft: FileText,
-  menunggu_approval: Clock,
-  disetujui: CircleCheck,
-  ditolak: CircleX,
-  menunggu_persiapan_pa: Clock,
-  menunggu_penerbitan: Clock,
-  menunggu_penerimaan: Clock,
-  aktif: CircleDot,
-  ditunda: PauseCircle,
-  kadaluarsa: AlertTriangle,
-  selesai: CheckCheck,
-  closed: Lock,
+const LABEL_PERAN = {
+  PA: "Performing Authority", AA: "Approval Authority", IA: "Issuing Authority",
+  AGT: "Authorized Gas Tester", SPV: "Supervisor", SHE: "Safety, Health & Environment",
+  ADM: "Administrator", PJ: "Petugas Jaga", PW: "Pekerja",
 };
 
-// Peta status -> kategori warna (disederhanakan jadi 5 kelompok bermakna).
-// biru=info, kuning=menunggu/tunda, hijau=positif, merah=bermasalah, abu=netral.
+// Warna penanda per jenis izin (mengikuti warna lembar cetak).
+const WARNA_JENIS = {
+  HWP: "#b91c1c", CWP: "#1d4ed8", CSE: "#c2410c", WAH: "#475569",
+};
+
 const WARNA_STATUS = {
-  // hijau - berjalan baik / positif
-  aktif:     "text-emerald-600",
-  disetujui: "text-emerald-600",
-  selesai:   "text-emerald-600",
-  // kuning/oranye - menggantung / perlu tindakan
-  menunggu_approval:     "text-amber-600",
-  menunggu_penerbitan:   "text-amber-600",
-  menunggu_penerimaan:   "text-amber-600",
-  menunggu_persiapan_pa: "text-amber-600",
-  ditunda:               "text-amber-600",
-  // merah - bermasalah
-  ditolak:    "text-red-600",
-  kadaluarsa: "text-red-600",
-  // abu - netral / tidak aktif
-  draft:  "text-slate-500",
-  closed: "text-slate-500",
+  aktif: "bg-emerald-100 text-emerald-700",
+  selesai: "bg-blue-100 text-blue-700",
+  closed: "bg-slate-200 text-slate-600",
+  ditolak: "bg-red-100 text-red-700",
+  kadaluarsa: "bg-red-100 text-red-700",
+  ditunda: "bg-amber-100 text-amber-700",
 };
+const warnaStatus = (s) => WARNA_STATUS[s] ?? "bg-amber-100 text-amber-700";
 
-// Urutan tampil kartu status: ikuti perjalanan izin (menunggu -> positif ->
-// masalah -> netral). Status yang tidak ada datanya otomatis dilewati.
-const URUTAN_STATUS = [
-  "menunggu_approval",
-  "menunggu_persiapan_pa",
-  "menunggu_penerbitan",
-  "menunggu_penerimaan",
-  "ditunda",
-  "disetujui",
-  "aktif",
-  "selesai",
-  "ditolak",
-  "kadaluarsa",
-  "draft",
-  "closed",
-];
-
-// Urutkan entri by_status sesuai URUTAN_STATUS; status tak dikenal ditaruh akhir.
-const urutkanStatus = (byStatus) =>
-  Object.entries(byStatus).sort(([a], [b]) => {
-    const ia = URUTAN_STATUS.indexOf(a);
-    const ib = URUTAN_STATUS.indexOf(b);
-    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-  });
-
-// Status yang digabung menjadi satu kartu "Pending Review".
-const STATUS_MENUNGGU = [
-  "menunggu_approval",
-  "menunggu_persiapan_pa",
-  "menunggu_penerbitan",
-  "menunggu_penerimaan",
-  "ditunda",
-];
-
-// Status non-menunggu yang SELALU ditampilkan sebagai kartu tersendiri,
-// walau jumlahnya 0 — supaya kolom statistik konsisten sejak awal.
-const STATUS_TETAP = [
-  "disetujui",
-  "aktif",
-  "selesai",
-  "ditolak",
-  "kadaluarsa",
-  "closed",
-];
-
-// Ringkas by_status: jumlahkan semua status menunggu jadi satu angka "pending",
-// lalu kembalikan STATUS_TETAP terurut (0 bila tak ada datanya) + status lain
-// tak terduga yang punya data.
-function ringkasStatus(byStatus) {
-  let pending = 0;
-  const lain = {};
-  // Awali semua status tetap dengan 0 agar selalu muncul.
-  for (const s of STATUS_TETAP) lain[s] = 0;
-  for (const [s, jml] of Object.entries(byStatus)) {
-    if (STATUS_MENUNGGU.includes(s)) pending += jml;
-    else lain[s] = jml;
-  }
-  return { pending, lain: urutkanStatus(lain) };
-}
-
-const warnaStatus = (s) => WARNA_STATUS[s] ?? "text-slate-500";
-
-// Kartu statistik: ikon + label + angka, berwarna per kategori. Bisa diklik.
-function KartuStatus({ status, label, jumlah, icon, warna: warnaProp, onClick }) {
-  const Ikon = icon ?? IKON_STATUS[status] ?? FileText;
-  const warna = warnaProp ?? warnaStatus(status);
-  const teks = label ?? statusLabel(status);
+/** Kartu metrik utama. */
+function KartuMetrik({ ikon: Ikon, warnaIkon, label, nilai, catatan, warnaCatatan, onClick }) {
   return (
     <button
-      type="button"
       onClick={onClick}
-      disabled={!onClick}
-      className={
-        "bg-white rounded-xl shadow-sm p-4 border border-slate-100 flex flex-col justify-between min-h-[104px] text-left w-full " +
-        (onClick ? "hover:shadow-md hover:border-brand-light transition cursor-pointer" : "cursor-default")
-      }
+      className="text-left bg-white rounded-xl border border-slate-200 p-4 hover:border-brand hover:shadow-sm transition w-full"
     >
-      <div className="flex items-start gap-1.5 text-slate-500 text-xs">
-        <Ikon size={14} className={warna + " shrink-0 mt-0.5"} /> {teks}
-      </div>
-      <div className={"text-2xl font-bold " + warna}>{jumlah}</div>
+      <span className={`inline-flex items-center justify-center w-9 h-9 rounded-lg ${warnaIkon}`}>
+        <Ikon size={18} />
+      </span>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-3">{label}</p>
+      <p className="text-2xl font-bold text-slate-800 mt-1 leading-none">{nilai}</p>
+      {catatan && (
+        <p className={`text-xs mt-3 flex items-center gap-1.5 ${warnaCatatan ?? "text-slate-500"}`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-current" />{catatan}
+        </p>
+      )}
     </button>
   );
 }
 
-const LABEL_PERAN = {
-  PA: "Performing Authority",
-  AA: "Approval Authority",
-  IA: "Issuing Authority",
-  PJ: "Petugas Jaga",
-};
-
 export default function DashboardPage() {
-  const { user, logout, hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const navigate = useNavigate();
-  const bolehStatistik = hasRole("SHE") || hasRole("ADM");
-
-  const [summary, setSummary] = useState(null);
-  const [loadingStat, setLoadingStat] = useState(bolehStatistik);
-
-  // Statistik personal per peran (untuk role non-SHE/ADM: PA/AA/IA/PJ).
-  const [myStats, setMyStats] = useState(null);
-  const [loadingMy, setLoadingMy] = useState(!bolehStatistik);
+  const [dash, setDash] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!bolehStatistik) return;
-    getSummary()
-      .then((res) => setSummary(res.data.data))
-      .catch(() => setSummary(null))
-      .finally(() => setLoadingStat(false));
-  }, [bolehStatistik]);
-
-  useEffect(() => {
-    // Ambil statistik personal untuk pengguna non-SHE/ADM.
-    if (bolehStatistik) return;
     getMySummary()
-      .then((res) => setMyStats(res.data.data))
-      .catch(() => setMyStats(null))
-      .finally(() => setLoadingMy(false));
-  }, [bolehStatistik]);
+      .then((res) => setDash(res.data.dashboard ?? null))
+      .catch(() => toast.error("Gagal memuat data dashboard."))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const handleLogout = async () => {
-    await logout();
-    toast.success("Berhasil logout.");
-    navigate("/login");
+  const peranUtama = user?.roles?.[0];  // /me mengirim daftar kode peran
+  const m = dash?.metrik ?? {};
+  const distribusi = dash?.distribusi ?? [];
+  const totalJenis = distribusi.reduce((a, d) => a + Number(d.jumlah), 0) || 1;
+  const mendekati = dash?.mendekati_batas ?? [];
+  const terbaru = dash?.terbaru ?? [];
+
+  const sisaWaktu = (tgl) => {
+    if (!tgl) return "-";
+    const jam = Math.round((new Date(tgl) - new Date()) / 36e5);
+    if (jam < 0) return "lewat batas";
+    return jam < 24 ? `${jam} jam lagi` : `${Math.round(jam / 24)} hari lagi`;
   };
 
-  const byStatus = summary?.by_status ?? {};
-  const byType = summary?.by_type ?? {};
-
-  const menu = [
-    { to: "/screening", icon: ClipboardList, judul: "Penapisan", ket: "Tentukan apakah pekerjaan butuh izin kerja." },
-    { to: "/permits", icon: FileText, judul: "Izin Kerja", ket: "Buat pengajuan baru & kelola seluruh izin kerja." },
-    { to: "/board", icon: LayoutGrid, judul: "Papan Izin", ket: "Pantau izin Aktif / Ditunda / Closed real-time." },
-    { to: "/notifications", icon: Bell, judul: "Notifikasi", ket: "Pemberitahuan izin ditunda / kadaluarsa." },
-  ];
-  const menuSheAdm = [
-    { to: "/audit-logs", icon: ScrollText, judul: "Audit Log", ket: "Jejak seluruh aksi sistem." },
-    { to: "/reports", icon: BarChart3, judul: "Rekap Evaluasi", ket: "Statistik izin untuk evaluasi SHE." },
-  ];
-
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="text-brand" size={20} />
-          <h1 className="font-bold text-slate-800">Digital Permit SHE</h1>
-        </div>
-        <button onClick={handleLogout} className="flex items-center gap-1 text-sm text-slate-600 hover:text-red-600">
-          <LogOut size={16} /> Logout
-        </button>
-      </header>
-
-      <main className="p-6 max-w-5xl mx-auto space-y-6">
-        {/* Sapaan + info user ringkas */}
+    <div className="p-6 space-y-5 max-w-[1400px]">
+      {/* Sapaan + aksi cepat */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Selamat datang, {user?.name}</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {user?.jabatan || "-"}
-            {user?.roles?.length ? " • " : ""}
-            {user?.roles?.map((r) => (
-              <span key={r} className="ml-1 px-2 py-0.5 rounded bg-brand-50 text-brand text-xs font-medium">{r}</span>
-            ))}
+          <h1 className="text-xl font-bold text-slate-800">Selamat datang, {user?.name}</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            {LABEL_PERAN[peranUtama] ?? "Pengguna"}
+            {m.menunggu > 0 && (
+              <> · <span className="text-amber-600 font-medium">{m.menunggu} izin menunggu tindakan</span></>
+            )}
           </p>
         </div>
-
-        {/* Kartu statistik - hanya SHE/ADM */}
-        {bolehStatistik && (
-          <section>
-            <h3 className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">Ringkasan Izin</h3>
-            {loadingStat ? (
-              <div className="text-sm text-slate-400">Memuat statistik…</div>
-            ) : summary ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                <KartuStatus
-                  label="Total Izin" jumlah={summary.total ?? 0}
-                  icon={FileStack} warna="text-blue-700"
-                  onClick={() => navigate("/permits?scope=all")}
-                />
-                {(() => {
-                  const { pending, lain } = ringkasStatus(byStatus);
-                  return (
-                    <>
-                      <KartuStatus
-                        label="Pending Review" jumlah={pending}
-                        icon={Clock} warna="text-amber-600"
-                        onClick={() => navigate("/permits?status=menunggu&scope=all")}
-                      />
-                      {lain.map(([s, jml]) => (
-                        <KartuStatus key={s} status={s} jumlah={jml}
-                          onClick={() => navigate(`/permits?status=${s}&scope=all`)} />
-                      ))}
-                    </>
-                  );
-                })()}
-              </div>
-            ) : (
-              <div className="text-sm text-slate-400">Statistik belum tersedia.</div>
-            )}
-
-            {/* Rincian per jenis izin */}
-            {summary && Object.keys(byType).length > 0 && (
-              <div className="mt-4 bg-white rounded-xl shadow-sm p-4 border border-slate-100">
-                <div className="text-slate-500 text-xs mb-3">Izin per Jenis</div>
-                <div className="flex flex-wrap gap-3">
-                  {Object.entries(byType).map(([kode, jumlah]) => (
-                    <div key={kode} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-50">
-                      <span className="font-semibold text-brand">{kode}</span>
-                      <span className="text-slate-700 font-medium">{jumlah}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Statistik personal per peran - untuk role non-SHE/ADM (PA/AA/IA/PJ) */}
-        {!bolehStatistik && (
-          <section className="space-y-5">
-            {loadingMy ? (
-              <div className="text-sm text-slate-400">Memuat statistik…</div>
-            ) : myStats && Object.keys(myStats).length > 0 ? (
-              Object.entries(myStats).map(([peran, data]) => (
-                <div key={peran}>
-                  <h3 className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">
-                    Izin Saya — {LABEL_PERAN[peran] ?? peran}
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                    <KartuStatus
-                      label="Total" jumlah={data.total ?? 0}
-                      icon={FileStack} warna="text-blue-700"
-                      onClick={() => navigate("/permits")}
-                    />
-                    {(() => {
-                      const { pending, lain } = ringkasStatus(data.by_status ?? {});
-                      return (
-                        <>
-                          <KartuStatus
-                            label="Pending Review" jumlah={pending}
-                            icon={Clock} warna="text-amber-600"
-                            onClick={() => navigate("/permits?status=menunggu")}
-                          />
-                          {lain.map(([s, jml]) => (
-                            <KartuStatus key={s} status={s} jumlah={jml}
-                              onClick={() => navigate(`/permits?status=${s}`)} />
-                          ))}
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              ))
-            ) : null}
-          </section>
-        )}
-
-        {/* Menu navigasi */}
-        <section>
-          <h3 className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">Menu</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...menu, ...(bolehStatistik ? menuSheAdm : [])].map(({ to, icon: Icon, judul, ket }) => (
-              <button
-                key={to}
-                onClick={() => navigate(to)}
-                className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 text-left hover:shadow-md hover:border-brand-light transition"
-              >
-                <Icon className="text-brand mb-2" size={22} />
-                <div className="font-semibold text-slate-800">{judul}</div>
-                <div className="text-sm text-slate-500 mt-0.5">{ket}</div>
+        <div className="flex gap-2">
+          {hasRole("PA") && (
+            <>
+              <button onClick={() => navigate("/screening/new")}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <ClipboardCheck size={16} /> Penapisan
               </button>
-            ))}
+              <button onClick={() => navigate("/permits/new")}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-dark">
+                <Plus size={16} /> Izin Baru
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {loading ? <p className="text-sm text-slate-500">Memuat...</p> : (
+        <>
+          {/* Empat metrik utama */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KartuMetrik ikon={CheckCircle2} warnaIkon="bg-emerald-50 text-emerald-600"
+              label="Izin Aktif" nilai={m.aktif ?? 0}
+              catatan="Pekerjaan sedang berlangsung" warnaCatatan="text-emerald-600"
+              onClick={() => navigate("/permits?status=aktif")} />
+            <KartuMetrik ikon={Clock} warnaIkon="bg-amber-50 text-amber-600"
+              label="Menunggu Tindakan" nilai={m.menunggu ?? 0}
+              catatan={m.menunggu > 0 ? "Perlu ditindaklanjuti" : "Tidak ada antrean"}
+              warnaCatatan={m.menunggu > 0 ? "text-amber-600" : "text-slate-500"}
+              onClick={() => navigate("/permits")} />
+            <KartuMetrik ikon={AlertTriangle} warnaIkon="bg-red-50 text-red-600"
+              label="Mendekati Batas Waktu" nilai={m.mendekati_batas ?? 0}
+              catatan="Berakhir dalam 12 jam"
+              warnaCatatan={m.mendekati_batas > 0 ? "text-red-600" : "text-slate-500"}
+              onClick={() => navigate("/permits?status=aktif")} />
+            <KartuMetrik ikon={FileStack} warnaIkon="bg-blue-50 text-blue-600"
+              label="Total Izin" nilai={m.total ?? 0}
+              catatan={`${m.bulan_ini ?? 0} diajukan bulan ini`}
+              onClick={() => navigate("/permits")} />
           </div>
-        </section>
-      </main>
+
+          {/* Izin terbaru + panel kanan */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+            {/* Tabel izin terbaru */}
+            <div className="lg:col-span-2 min-w-0 bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100">
+                <div>
+                  <h2 className="font-semibold text-slate-800">Izin Terbaru</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Lima izin terakhir yang berkaitan dengan Anda</p>
+                </div>
+                <button onClick={() => navigate("/permits")}
+                  className="text-sm text-brand font-medium hover:underline flex items-center gap-1">
+                  Lihat semua <ArrowRight size={14} />
+                </button>
+              </div>
+              {terbaru.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-10">Belum ada izin.</p>
+              ) : (
+                <div className="overflow-x-auto"><table className="w-full text-sm min-w-[520px]">
+                  <thead>
+                    <tr className="text-left text-xs text-slate-500 bg-slate-50">
+                      <th className="px-4 py-2.5 font-semibold">Nomor Izin</th>
+                      <th className="py-2.5 font-semibold">Jenis</th>
+                      <th className="py-2.5 font-semibold">Lokasi</th>
+                      <th className="py-2.5 font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {terbaru.map((p) => (
+                      <tr key={p.id} onClick={() => navigate(`/permits/${p.id}`)}
+                        className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer">
+                        <td className="px-4 py-2.5 font-medium text-slate-700">{p.nomor_izin ?? "-"}</td>
+                        <td className="py-2.5">
+                          <div className="flex gap-1">
+                            {(p.permit_types ?? []).map((t) => (
+                              <span key={t.id} className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white"
+                                style={{ background: WARNA_JENIS[t.kode] ?? "#64748b" }}>{t.kode}</span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-2.5 text-slate-600">{p.lokasi ?? "-"}</td>
+                        <td className="py-2.5">
+                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${warnaStatus(p.status)}`}>
+                            {statusLabel(p.status)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table></div>
+              )}
+            </div>
+
+            {/* Panel kanan */}
+            <div className="min-w-0 space-y-4">
+              {/* Distribusi jenis izin */}
+              <div className="bg-white rounded-xl border border-slate-200 p-4">
+                <h2 className="font-semibold text-slate-800">Distribusi Jenis Izin</h2>
+                <p className="text-xs text-slate-400 mt-0.5 mb-4">Dari seluruh izin Anda</p>
+                {distribusi.length === 0 ? (
+                  <p className="text-sm text-slate-400 py-2">Belum ada data.</p>
+                ) : distribusi.map((d) => {
+                  const persen = Math.round((Number(d.jumlah) / totalJenis) * 100);
+                  return (
+                    <div key={d.kode} className="mb-3 last:mb-0">
+                      <div className="flex justify-between text-xs mb-1.5">
+                        <span className="text-slate-600"><b className="text-slate-800">{d.kode}</b> — {d.nama}</span>
+                        <span className="font-semibold text-slate-700">{d.jumlah}</span>
+                      </div>
+                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full"
+                          style={{ width: `${persen}%`, background: WARNA_JENIS[d.kode] ?? "#64748b" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Mendekati batas waktu */}
+              <div className="bg-white rounded-xl border border-slate-200 p-4">
+                <div className="flex items-center gap-2">
+                  <Timer size={16} className="text-red-500" />
+                  <h2 className="font-semibold text-slate-800">Mendekati Batas Waktu</h2>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5 mb-3">Izin aktif dengan masa berlaku terdekat</p>
+                {mendekati.length === 0 ? (
+                  <p className="text-sm text-slate-400 py-2">Tidak ada izin aktif.</p>
+                ) : mendekati.map((p) => (
+                  <button key={p.id} onClick={() => navigate(`/permits/${p.id}`)}
+                    className="w-full text-left flex items-center justify-between py-2 border-b border-slate-100 last:border-0 hover:bg-slate-50 rounded px-1">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-700 truncate">{p.nomor_izin ?? "-"}</p>
+                      <p className="text-xs text-slate-400 truncate">{p.lokasi ?? "-"}</p>
+                    </div>
+                    <span className="text-xs font-semibold text-red-600 whitespace-nowrap ml-2">
+                      {sisaWaktu(p.tgl_kadaluarsa)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
