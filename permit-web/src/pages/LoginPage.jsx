@@ -43,7 +43,10 @@ export default function LoginPage() {
 
         <div className="relative z-10 flex items-center gap-3">
           <img src="/emp-logo.png" alt="EMP" className="h-9 w-auto block" />
-          <span className="font-semibold tracking-wide leading-none -mt-1">Bentu Limited</span>
+          <span className="font-semibold tracking-wide leading-tight">
+            Bentu Limited
+            <span className="block text-sm font-normal text-white/80">Korinci Baru</span>
+          </span>
         </div>
 
         <div className="relative z-10">

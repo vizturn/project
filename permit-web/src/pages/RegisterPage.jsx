@@ -62,7 +62,10 @@ export default function RegisterPage() {
         <div className="absolute inset-0 bg-black/55" />
         <div className="relative z-10 flex items-center gap-3">
           <img src="/emp-logo.png" alt="EMP" className="h-9 w-auto block" />
-          <span className="font-semibold tracking-wide leading-none -mt-1">Bentu Limited</span>
+          <span className="font-semibold tracking-wide leading-tight">
+            Bentu Limited
+            <span className="block text-sm font-normal text-white/80">Korinci Baru</span>
+          </span>
         </div>
         <div className="relative z-10">
           <h1 className="text-4xl font-bold leading-tight mb-4">Daftar Akun<br />Digital Permit</h1>
