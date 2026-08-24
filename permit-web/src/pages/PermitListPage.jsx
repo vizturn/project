@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { getPermits } from "../services/permitService";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/StatusBadge";
+import RoleResponsibilityNotice from "../components/RoleResponsibilityNotice";
 import { statusLabel } from "../lib/status";
 import { toast } from "sonner";
 import { FileText, Plus, ArrowLeft, Inbox, X, Search, FileX2 } from "lucide-react";
@@ -36,6 +37,12 @@ export default function PermitListPage() {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cari, setCari] = useState("");
+
+  // Gerbang Tugas & Tanggung Jawab: PA/AA/IA melihat layar ini dulu setiap
+  // kali membuka menu Daftar Izin, baru lanjut ke tabel daftar izin.
+  // Peran lain (AGT, PJ, SPV, SHE, ADM) langsung ke tabel seperti biasa.
+  const wajibKonfirmasiTugas = hasRole("PA", "AA", "IA");
+  const [tugasDikonfirmasi, setTugasDikonfirmasi] = useState(false);
   // scope dari URL: "all" = semua izin (drill-down statistik global SHE/ADM),
   // selain itu default inbox (hanya yang relevan bagi pengguna).
   const [inbox, setInbox] = useState(params.get("scope") !== "all");
@@ -83,6 +90,20 @@ export default function PermitListPage() {
   const hapusFilter = () => setFilter(null);
 
   const fmtTgl = (d) => (d ? new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "-");
+
+  // Gerbang Tugas & Tanggung Jawab — tampil duluan untuk PA/AA/IA, sebelum tabel izin.
+  if (wajibKonfirmasiTugas && !tugasDikonfirmasi) {
+    return (
+      <div className="min-h-screen bg-slate-100 p-6">
+        <div className="max-w-5xl mx-auto">
+          <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-4">
+            <ArrowLeft size={15} /> Dashboard
+          </button>
+          <RoleResponsibilityNotice onLanjut={() => setTugasDikonfirmasi(true)} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 p-6">
