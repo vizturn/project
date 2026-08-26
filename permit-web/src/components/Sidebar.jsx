@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationContext";
 import {
-  LayoutDashboard, ClipboardList, FileText, KanbanSquare,
+  LayoutDashboard, FileText, KanbanSquare,
   Bell, ScrollText, CalendarClock, BarChart3, LogOut, UserCircle2, UserCheck,
 } from "lucide-react";
 
@@ -10,10 +10,15 @@ import {
 // Kalau diisi, hanya peran tsb yang melihat menu ini (mengikuti RoleRoute di router).
 // `hideForRoles` = kebalikannya: peran yang disebut TIDAK melihat menu ini
 // meski peran lain yang memenuhi `roles` tetap melihatnya.
+//
+// Catatan: menu "Penapisan" dan "Buat Penapisan" sengaja DIHAPUS. Penapisan
+// bukan lagi aktivitas berdiri sendiri, melainkan langkah pertama yang otomatis
+// dilalui saat PA mengajukan izin baru (sesuai SOP EMP pasal 7: penapisan yang
+// menentukan apakah suatu pekerjaan wajib berizin). Rute /screening dan
+// /screening/new tetap hidup di router, sehingga riwayat penapisan masih dapat
+// dibuka bila nanti dibutuhkan untuk audit SHE.
 const MENU = [
   { to: "/dashboard",     label: "Dashboard",    icon: LayoutDashboard },
-  { to: "/screening",     label: "Penapisan",    icon: ClipboardList, hideForRoles: ["SHE", "ADM", "AA", "IA"] },
-  { to: "/screening/new", label: "Buat Penapisan", icon: ClipboardList, roles: ["PA"] },
   { to: "/permits",       label: "Daftar Izin",  icon: FileText, hideForRoles: ["SHE", "ADM"] },
   { to: "/board",         label: "Papan Izin",   icon: KanbanSquare },
   { to: "/notifications", label: "Notifikasi",   icon: Bell },
@@ -57,7 +62,6 @@ export default function Sidebar() {
           <NavLink
             key={to}
             to={to}
-            end={to === "/screening"}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                 isActive

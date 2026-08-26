@@ -15,7 +15,23 @@ export default function PermitFormPage() {
   const [params] = useSearchParams();
   const { id } = useParams();            // ada => mode EDIT, tidak ada => mode CREATE
   const isEdit = Boolean(id);
-  const screeningIdParam = params.get("screening"); // opsional, hanya dipakai saat create
+  const screeningIdParam = params.get("screening"); // wajib saat create (lihat penjaga di bawah)
+
+  /**
+   * Penjaga alur: pengajuan izin baru HARUS berasal dari penapisan.
+   *
+   * Semua tombol "Izin Baru" kini mengarah ke /screening/new, tetapi URL
+   * /permits/new masih bisa diketik langsung atau tersimpan sebagai bookmark.
+   * Tanpa penjaga ini, izin bisa dibuat tanpa penapisan — bertentangan dengan
+   * SOP EMP pasal 7 yang menempatkan penapisan sebagai penentu apakah suatu
+   * pekerjaan wajib berizin. Mode EDIT dikecualikan.
+   */
+  useEffect(() => {
+    if (!isEdit && !screeningIdParam) {
+      toast.info("Isi penapisan terlebih dahulu sebelum mengajukan izin.");
+      navigate("/screening/new", { replace: true });
+    }
+  }, [isEdit, screeningIdParam, navigate]);
 
   const [types, setTypes] = useState([]);
   const [aaList, setAaList] = useState([]);

@@ -95,7 +95,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2">
           <NotificationBell />
           {hasRole("PA") && (
-            <button onClick={() => navigate("/permits/new")}
+            <button onClick={() => navigate("/screening/new")}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-dark">
               <Plus size={16} /> Izin Baru
             </button>

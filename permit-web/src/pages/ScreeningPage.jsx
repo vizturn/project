@@ -48,8 +48,8 @@ export default function ScreeningPage() {
   return (
     <div className="min-h-screen bg-slate-100 p-6">
       <div className="max-w-3xl mx-auto">
-        <button onClick={() => navigate("/screening")} className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4">
-          <ArrowLeft size={16} /> Kembali
+        <button onClick={() => navigate("/permits")} className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4">
+          <ArrowLeft size={16} /> Kembali ke Daftar Izin
         </button>
 
         <div className="bg-white rounded-xl shadow p-6">
@@ -57,6 +57,12 @@ export default function ScreeningPage() {
             <ClipboardCheck className="text-emerald-600" size={22} />
             <h1 className="text-lg font-bold text-slate-800">Penapisan Jenis Pekerjaan</h1>
           </div>
+          {/* Penanda langkah: penapisan adalah tahap pertama dari pengajuan izin,
+              bukan aktivitas terpisah. Sesuai SOP EMP pasal 7, penapisan yang
+              menentukan apakah suatu pekerjaan wajib memiliki izin kerja. */}
+          <p className="text-[13px] font-medium text-emerald-700 mb-2">
+            Langkah 1 dari 2 — Penapisan
+          </p>
           <p className="text-sm text-slate-500 mb-4">
             Centang kriteria yang sesuai dengan pekerjaan. Jika minimal satu tercentang, pekerjaan wajib mengajukan izin kerja.
           </p>
@@ -64,13 +70,30 @@ export default function ScreeningPage() {
           {hasil ? (
             <div className={`rounded-lg p-4 mb-4 ${hasil.data.butuh_izin ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>
               <p className="font-semibold">{hasil.message}</p>
-              {hasil.data.butuh_izin && (
+
+              {hasil.data.butuh_izin ? (
                 <button
                   onClick={() => navigate(`/permits/new?screening=${hasil.data.id}`)}
                   className="mt-3 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700"
                 >
-                  Lanjut ke Pengajuan Izin
+                  Langkah 2 — Isi Formulir Pengajuan Izin
                 </button>
+              ) : (
+                /* Tidak ada kriteria tercentang: pekerjaan tidak memerlukan izin
+                   kerja. Hasil penapisan tetap tersimpan sebagai bukti bahwa
+                   penilaian sudah dilakukan (SOP pasal 7), lalu pengguna
+                   dikembalikan — tidak ada formulir izin yang perlu diisi. */
+                <>
+                  <p className="text-sm mt-1">
+                    Pekerjaan ini tidak memerlukan izin kerja. Hasil penapisan tetap tersimpan sebagai catatan.
+                  </p>
+                  <button
+                    onClick={() => navigate("/permits")}
+                    className="mt-3 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700"
+                  >
+                    Kembali ke Daftar Izin
+                  </button>
+                </>
               )}
             </div>
           ) : (

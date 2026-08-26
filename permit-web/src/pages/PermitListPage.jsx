@@ -134,7 +134,7 @@ export default function PermitListPage() {
               <Inbox size={16} /> {inbox ? "Untuk Saya" : "Semua Izin"}
             </button>
             {hasRole("PA") && (
-              <Button onClick={() => navigate("/permits/new")}><Plus size={16} /> Pengajuan Baru</Button>
+              <Button onClick={() => navigate("/screening/new")}><Plus size={16} /> Pengajuan Baru</Button>
             )}
           </div>
         </div>
