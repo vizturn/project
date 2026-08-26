@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Button from "./Button";
 import { HardHat, Users, Wrench, Plus, Trash2 } from "lucide-react";
+import { wahFileUrl } from "../services/wahService";
 
 /**
  * Bagian 3 — Persiapan (khusus izin WAH).
@@ -26,11 +27,19 @@ export default function WahPreparationForm({ awal, judul, labelTombol, onSubmit,
   const [scaffFile, setScaffFile] = useState(null);
 
   // Daftar pekerja: minimal satu baris. Nama diisi manual.
-  // Saat awal (mode tinjau IA) tersedia, prefill dari permit.wah_workers.
+  // Saat awal (mode tinjau IA) tersedia, prefill dari permit.wah_workers —
+  // termasuk `id` (dipakai backend untuk sync-by-id, lihat WahPreparationController::syncWorkers)
+  // dan path sertifikat yang sudah tersimpan (ditampilkan sebagai link, tidak perlu upload ulang).
   const [workers, setWorkers] = useState(
     awal?.wah_workers?.length
-      ? awal.wah_workers.map((w) => ({ nama_pekerja: w.nama_pekerja, sudah_pelatihan: !!w.sudah_pelatihan }))
-      : [{ nama_pekerja: "", sudah_pelatihan: false }]
+      ? awal.wah_workers.map((w) => ({
+          id: w.id,
+          nama_pekerja: w.nama_pekerja,
+          sudah_pelatihan: !!w.sudah_pelatihan,
+          sertifikat_pelatihan_file_path: w.sertifikat_pelatihan_file_path ?? null,
+          sertifikat_file: null,
+        }))
+      : [{ nama_pekerja: "", sudah_pelatihan: false, sertifikat_pelatihan_file_path: null, sertifikat_file: null }]
   );
   // Peralatan: { kode: true } untuk yang dicentang. Prefill dari array wah_peralatan.
   const [peralatan, setPeralatan] = useState(
@@ -51,7 +60,7 @@ export default function WahPreparationForm({ awal, judul, labelTombol, onSubmit,
   }, [nomorJsa, jsaFile, pakaiPerancah, scaffNomor, scaffFile, workers, peralatan, peralatanLainnya]);
 
   const tambahWorker = () =>
-    setWorkers((w) => [...w, { nama_pekerja: "", sudah_pelatihan: false }]);
+    setWorkers((w) => [...w, { nama_pekerja: "", sudah_pelatihan: false, sertifikat_pelatihan_file_path: null, sertifikat_file: null }]);
 
   const hapusWorker = (i) =>
     setWorkers((w) => (w.length === 1 ? w : w.filter((_, idx) => idx !== i)));
@@ -70,6 +79,16 @@ export default function WahPreparationForm({ awal, judul, labelTombol, onSubmit,
       return;
     }
 
+    // Sertifikat pelatihan wajib ada (baru diunggah, atau sudah tersimpan
+    // sebelumnya) untuk tiap pekerja yang "sudah pelatihan"-nya dicentang Ya.
+    const kurangSertifikat = bersih.some(
+      (w) => w.sudah_pelatihan && !w.sertifikat_file && !w.sertifikat_pelatihan_file_path
+    );
+    if (kurangSertifikat) {
+      alert("Sertifikat pelatihan wajib dilampirkan untuk pekerja yang sudah mengikuti pelatihan.");
+      return;
+    }
+
     const fd = new FormData();
     if (nomorJsa.trim()) fd.append("nomor_jsa", nomorJsa);
     if (jsaFile) fd.append("jsa_file", jsaFile);
@@ -78,9 +97,14 @@ export default function WahPreparationForm({ awal, judul, labelTombol, onSubmit,
     if (scaffFile) fd.append("wah_scaffolding_cert_file", scaffFile);
 
     // Daftar pekerja → format array untuk Laravel: workers[0][nama_pekerja]
+    // `id` disertakan untuk pekerja yang sudah ada (hasil awal/tinjau IA) agar
+    // backend bisa update-in-place dan mempertahankan sertifikat lama bila
+    // tidak ada file baru diunggah — lihat WahPreparationController::syncWorkers.
     bersih.forEach((w, i) => {
+      if (w.id) fd.append(`workers[${i}][id]`, w.id);
       fd.append(`workers[${i}][nama_pekerja]`, w.nama_pekerja);
       fd.append(`workers[${i}][sudah_pelatihan]`, w.sudah_pelatihan ? "1" : "0");
+      if (w.sertifikat_file) fd.append(`workers[${i}][sertifikat_pelatihan_file]`, w.sertifikat_file);
     });
 
     // Peralatan tercentang → peralatan[0], peralatan[1], ...
@@ -159,25 +183,44 @@ export default function WahPreparationForm({ awal, judul, labelTombol, onSubmit,
 
         <div className="space-y-2">
           {workers.map((w, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                value={w.nama_pekerja}
-                onChange={(e) => ubahWorker(i, "nama_pekerja", e.target.value)}
-                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                placeholder={`Nama pekerja ${i + 1}`}
-              />
-              <label className="flex items-center gap-1.5 text-xs text-slate-600 whitespace-nowrap">
-                <input type="checkbox" className="accent-amber-600"
-                  checked={w.sudah_pelatihan}
-                  onChange={(e) => ubahWorker(i, "sudah_pelatihan", e.target.checked)} />
-                Sudah pelatihan
-              </label>
-              <button type="button" onClick={() => hapusWorker(i)}
-                disabled={workers.length === 1}
-                className="p-2 text-slate-400 hover:text-red-500 disabled:opacity-30"
-                title="Hapus pekerja">
-                <Trash2 size={16} />
-              </button>
+            <div key={i} className="border border-slate-200 rounded-lg p-2.5 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  value={w.nama_pekerja}
+                  onChange={(e) => ubahWorker(i, "nama_pekerja", e.target.value)}
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  placeholder={`Nama pekerja ${i + 1}`}
+                />
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 whitespace-nowrap">
+                  <input type="checkbox" className="accent-amber-600"
+                    checked={w.sudah_pelatihan}
+                    onChange={(e) => ubahWorker(i, "sudah_pelatihan", e.target.checked)} />
+                  Sudah pelatihan
+                </label>
+                <button type="button" onClick={() => hapusWorker(i)}
+                  disabled={workers.length === 1}
+                  className="p-2 text-slate-400 hover:text-red-500 disabled:opacity-30"
+                  title="Hapus pekerja">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+
+              {/* Sertifikat pelatihan — wajib bila "sudah pelatihan" dicentang. */}
+              {w.sudah_pelatihan && (
+                <div className="pl-1">
+                  <label className="block text-xs text-slate-500 mb-1">Sertifikat Pelatihan Bekerja di Ketinggian *</label>
+                  <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    onChange={(e) => ubahWorker(i, "sertifikat_file", e.target.files?.[0] ?? null)}
+                    className="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-amber-50 file:text-amber-700" />
+                  {w.sertifikat_pelatihan_file_path && !w.sertifikat_file && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      <a href={wahFileUrl(w.sertifikat_pelatihan_file_path)} target="_blank" rel="noreferrer"
+                        className="text-blue-600 hover:underline">Lihat file tersimpan</a>
+                      {" — unggah file baru untuk mengganti."}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

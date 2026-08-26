@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Button from "../components/Button";
 import { useNavigate, useParams } from "react-router-dom";
-import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit, setPsb, gasTestFileUrl } from "../services/permitService";
+import { getPermit, submitPermit, approvePermit, rejectPermit, issuePermit, addGasTest, returnPermit, revalidatePermit, completePermit, closePermit, addLiveAudit, storeReferences, storeGasRequirement, acceptPermit, setPsb, gasTestFileUrl, buktiPersetujuanFileUrl } from "../services/permitService";
 import { getPsbTypes } from "../services/masterService";
 import { storeWahIsolation, storeWahPreparation, reviewWahPreparation, addWahAccessLog, wahFileUrl } from "../services/wahService";
 import { storeCseIsolation, storeCsePreparation, addCseAccessLog, cseFileUrl } from "../services/cseService";
@@ -351,7 +351,7 @@ export default function PermitDetailPage() {
           </div>
           <div className="flex items-center gap-2">
             <StatusBadge status={S} />
-            {["aktif", "selesai", "closed"].includes(S) && (
+            {["aktif", "selesai", "closed"].includes(S) && hasRole("PA") && (
               <button
                 onClick={() => navigate(`/permits/${id}/print`)}
                 className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark transition"
@@ -405,6 +405,30 @@ export default function PermitDetailPage() {
             <div><span className="font-medium">Terbit:</span> {fmt(permit.tgl_terbit)}</div>
             <div><span className="font-medium">Kadaluarsa:</span> {fmt(permit.tgl_kadaluarsa)}</div>
           </dl>
+
+          {/* Bukti persetujuan Lead/Supervisor (foto) — diunggah PA saat membuat/
+              mengubah izin, terlihat oleh siapa pun yang membuka detail izin ini
+              (termasuk AA & IA saat menilai persetujuan/penerbitan). */}
+          {permit.bukti_persetujuan_file_path && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-sm font-medium text-slate-700 mb-2">Bukti Persetujuan Supervisor</p>
+              <a
+                href={buktiPersetujuanFileUrl(permit.bukti_persetujuan_file_path)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block"
+              >
+                <img
+                  src={buktiPersetujuanFileUrl(permit.bukti_persetujuan_file_path)}
+                  alt="Bukti persetujuan supervisor"
+                  className="w-40 h-40 object-cover rounded-lg border border-slate-200 hover:opacity-90 transition"
+                />
+              </a>
+              {permit.bukti_persetujuan_nama && (
+                <p className="text-xs text-slate-500 mt-1.5">{permit.bukti_persetujuan_nama}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* File PSB — diunggah AA saat menyetujui izin (wajib min. 1 sebelum approve) */}
@@ -605,6 +629,7 @@ export default function PermitDetailPage() {
                     <tr>
                       <th className="text-left px-3 py-1.5 font-medium">Nama Pekerja</th>
                       <th className="text-left px-3 py-1.5 font-medium">Telah Mengikuti Pelatihan</th>
+                      <th className="text-left px-3 py-1.5 font-medium">Sertifikat</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -622,6 +647,14 @@ export default function PermitDetailPage() {
                           >
                             {w.sudah_pelatihan ? "Ya" : "Tidak"}
                           </span>
+                        </td>
+                        <td className="px-3 py-1.5">
+                          {w.sertifikat_pelatihan_file_path ? (
+                            <a href={wahFileUrl(w.sertifikat_pelatihan_file_path)} target="_blank" rel="noreferrer"
+                              className="text-blue-600 hover:underline">Lihat file</a>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
                         </td>
                       </tr>
                     ))}

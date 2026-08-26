@@ -40,9 +40,16 @@ class StoreWahPreparationRequest extends FormRequest
             ],
 
             // Daftar pekerja (Bagian 3) — minimal satu, nama wajib.
-            'workers'                    => ['required', 'array', 'min:1'],
-            'workers.*.nama_pekerja'     => ['required', 'string', 'max:150'],
-            'workers.*.sudah_pelatihan'  => ['required', 'boolean'],
+            // 'id' opsional: dikirim FE untuk baris pekerja yang sudah ada
+            // (hasil tinjau IA) supaya file sertifikat lama tidak hilang saat
+            // submit ulang — lihat WahPreparationController::syncWorkers().
+            'workers'                       => ['required', 'array', 'min:1'],
+            'workers.*.id'                  => ['nullable', 'integer'],
+            'workers.*.nama_pekerja'        => ['required', 'string', 'max:150'],
+            'workers.*.sudah_pelatihan'     => ['required', 'boolean'],
+            'workers.*.sertifikat_pelatihan_file' => [
+                'nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240',
+            ],
 
             // Peralatan khusus — checklist (array kode) + teks lainnya.
             'peralatan'                  => ['nullable', 'array'],
@@ -60,5 +67,40 @@ class StoreWahPreparationRequest extends FormRequest
             'workers.required'                => 'Minimal satu pekerja harus didaftarkan.',
             'workers.*.nama_pekerja.required' => 'Nama pekerja wajib diisi.',
         ];
+    }
+
+    /**
+     * Validasi tambahan: sertifikat pelatihan wajib ada (baru diunggah, atau
+     * sudah tersimpan sebelumnya) untuk tiap pekerja yang sudah_pelatihan-nya
+     * dicentang Ya. Dicek manual (bukan lewat required_if array biasa) karena
+     * "sudah ada file lama" bergantung pada `id` pekerja di database, bukan
+     * cuma nilai lain di request.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $permit = $this->route('permit');
+            $fileLamaPerId = $permit
+                ? $permit->wahWorkers()->pluck('sertifikat_pelatihan_file_path', 'id')
+                : collect();
+
+            foreach ((array) $this->input('workers', []) as $i => $w) {
+                $sudahPelatihan = filter_var($w['sudah_pelatihan'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                if (! $sudahPelatihan) {
+                    continue;
+                }
+
+                $adaFileBaru = $this->hasFile("workers.$i.sertifikat_pelatihan_file");
+                $id = $w['id'] ?? null;
+                $adaFileLama = $id && filled($fileLamaPerId->get((int) $id));
+
+                if (! $adaFileBaru && ! $adaFileLama) {
+                    $validator->errors()->add(
+                        "workers.$i.sertifikat_pelatihan_file",
+                        'Sertifikat pelatihan wajib dilampirkan untuk pekerja yang sudah mengikuti pelatihan.'
+                    );
+                }
+            }
+        });
     }
 }

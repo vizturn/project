@@ -69,14 +69,7 @@ class WahPreparationController extends Controller
                 'wah_persiapan_diisi_at'         => now(),
             ]);
 
-            // Daftar pekerja: replace-pattern (hapus lama, isi ulang) agar aman bila PA submit ulang.
-            $permit->wahWorkers()->delete();
-            foreach ($data['workers'] as $w) {
-                $permit->wahWorkers()->create([
-                    'nama_pekerja'    => $w['nama_pekerja'],
-                    'sudah_pelatihan' => (bool) $w['sudah_pelatihan'],
-                ]);
-            }
+            $this->syncWorkers($permit, $request, $data['workers']);
         });
 
         $permit->refresh();
@@ -159,13 +152,7 @@ class WahPreparationController extends Controller
                 'wah_peralatan_lainnya'          => $data['peralatan_lainnya'] ?? null,
             ]);
 
-            $permit->wahWorkers()->delete();
-            foreach ($data['workers'] as $w) {
-                $permit->wahWorkers()->create([
-                    'nama_pekerja'    => $w['nama_pekerja'],
-                    'sudah_pelatihan' => (bool) $w['sudah_pelatihan'],
-                ]);
-            }
+            $this->syncWorkers($permit, $request, $data['workers']);
         });
 
         $this->service->recordTransition(
@@ -176,5 +163,48 @@ class WahPreparationController extends Controller
             'message' => 'Pemeriksaan Persiapan WAH oleh IA tersimpan.',
             'data'    => $permit->load('wahWorkers'),
         ]);
+    }
+
+    /**
+     * Sinkronkan daftar pekerja WAH (Bagian 3) dengan pola "sync by id", BUKAN
+     * delete+recreate — supaya file sertifikat pelatihan yang sudah diunggah
+     * tidak hilang saat form disubmit ulang (mis. IA cuma mengedit satu baris
+     * lain). Baris dengan `id` (dikirim FE untuk pekerja yang sudah ada) di-
+     * update di tempat, mempertahankan file lama bila tidak ada file baru;
+     * baris tanpa `id` dibuat baru; baris lama yang sudah tidak ada lagi di
+     * submission (dihapus PA/IA di form) ikut dihapus.
+     */
+    private function syncWorkers(Permit $permit, StoreWahPreparationRequest $request, array $workers): void
+    {
+        $existingIds = $permit->wahWorkers()->pluck('id')->all();
+        $keptIds = [];
+
+        foreach ($workers as $i => $w) {
+            $sertifikatPath = $request->hasFile("workers.$i.sertifikat_pelatihan_file")
+                ? $request->file("workers.$i.sertifikat_pelatihan_file")->store('wah/pelatihan/' . $permit->id, 'public')
+                : null;
+
+            $id = isset($w['id']) ? (int) $w['id'] : null;
+
+            if ($id && in_array($id, $existingIds, true)) {
+                $worker = $permit->wahWorkers()->find($id);
+                $worker->update([
+                    'nama_pekerja'    => $w['nama_pekerja'],
+                    'sudah_pelatihan' => (bool) $w['sudah_pelatihan'],
+                    'sertifikat_pelatihan_file_path' => $sertifikatPath ?? $worker->sertifikat_pelatihan_file_path,
+                ]);
+                $keptIds[] = $worker->id;
+            } else {
+                $worker = $permit->wahWorkers()->create([
+                    'nama_pekerja'    => $w['nama_pekerja'],
+                    'sudah_pelatihan' => (bool) $w['sudah_pelatihan'],
+                    'sertifikat_pelatihan_file_path' => $sertifikatPath,
+                ]);
+                $keptIds[] = $worker->id;
+            }
+        }
+
+        // Baris lama yang tidak lagi disertakan (dihapus PA/IA di form) ikut dihapus.
+        $permit->wahWorkers()->whereNotIn('id', $keptIds)->delete();
     }
 }

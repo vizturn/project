@@ -97,7 +97,7 @@ class PermitController extends Controller
         $user = $request->user();
         $data = $request->validated();
 
-        $permit = DB::transaction(function () use ($user, $data) {
+        $permit = DB::transaction(function () use ($user, $data, $request) {
             // STEP 25 — satu izin bisa mencakup beberapa jenis sekaligus.
             $types = PermitType::whereIn('id', $data['permit_type_ids'])->get();
 
@@ -113,12 +113,22 @@ class PermitController extends Controller
                 'referensi_wo'            => $data['referensi_wo'] ?? null,
                 'referensi_peralatan'     => $data['referensi_peralatan'] ?? null,
                 'lead_supervisor'         => $data['lead_supervisor'] ?? null,
+                'bukti_persetujuan_nama'  => $data['bukti_persetujuan_nama'] ?? null,
                 'performing_authority_id' => $user->id,
                 'lokasi'                  => $data['lokasi'],
                 'deskripsi_pekerjaan'     => $data['deskripsi_pekerjaan'],
                 'durasi'                  => $data['durasi'] ?? null,
                 'status'                  => 'draft',
             ]);
+
+            // Bukti persetujuan Lead/Supervisor (foto) — opsional, disimpan per
+            // izin di disk "public" seperti file pendukung lain (PSB, JSA, dst).
+            // Path baru butuh $permit->id, jadi disimpan setelah create().
+            if ($request->hasFile('bukti_persetujuan_file')) {
+                $path = $request->file('bukti_persetujuan_file')
+                    ->store('bukti-persetujuan/' . $permit->id, 'public');
+                $permit->update(['bukti_persetujuan_file_path' => $path]);
+            }
 
             $permit->permitTypes()->sync($types->pluck('id')->all());
 
@@ -156,8 +166,16 @@ class PermitController extends Controller
 
         $data = $request->validated();
 
-        $permit = DB::transaction(function () use ($permit, $user, $data) {
+        $permit = DB::transaction(function () use ($permit, $user, $data, $request) {
             $types = PermitType::whereIn('id', $data['permit_type_ids'])->get();
+
+            // Bukti persetujuan (foto): pertahankan file lama bila PA tidak
+            // mengunggah file baru saat menyunting draft.
+            $buktiPath = $permit->bukti_persetujuan_file_path;
+            if ($request->hasFile('bukti_persetujuan_file')) {
+                $buktiPath = $request->file('bukti_persetujuan_file')
+                    ->store('bukti-persetujuan/' . $permit->id, 'public');
+            }
 
             $permit->update([
                 // Nomor izin TIDAK di-generate ulang saat draft disunting.
@@ -182,6 +200,8 @@ class PermitController extends Controller
                 'referensi_wo'          => $data['referensi_wo'] ?? null,
                 'referensi_peralatan'   => $data['referensi_peralatan'] ?? null,
                 'lead_supervisor'       => $data['lead_supervisor'] ?? null,
+                'bukti_persetujuan_nama'      => $data['bukti_persetujuan_nama'] ?? null,
+                'bukti_persetujuan_file_path' => $buktiPath,
                 'lokasi'                => $data['lokasi'],
                 'deskripsi_pekerjaan'   => $data['deskripsi_pekerjaan'],
                 'durasi'                => $data['durasi'] ?? null,
@@ -277,7 +297,8 @@ class PermitController extends Controller
         $this->notif(
             $permit->issuing_authority_id,
             $permit->id,
-            "Izin {$permit->nomor_izin} disetujui AA. Menunggu PA melengkapi identifikasi bahaya."
+            "Izin {$permit->nomor_izin} disetujui AA. Menunggu PA melengkapi identifikasi bahaya.",
+            kirimEmail: true
         );
         $this->notif(
             $permit->performing_authority_id,
@@ -620,7 +641,8 @@ class PermitController extends Controller
         $this->notif(
             $permit->issuing_authority_id,
             $permit->id,
-            "PTW {$permit->nomor_izin} telah diterima PA. Pekerjaan berstatus AKTIF."
+            "PTW {$permit->nomor_izin} telah diterima PA. Pekerjaan berstatus AKTIF.",
+            kirimEmail: true
         );
 
         // Notifikasi keselamatan kerja per peran (teks tanggung jawab sesuai
