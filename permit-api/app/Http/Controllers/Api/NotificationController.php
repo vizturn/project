@@ -14,7 +14,11 @@ class NotificationController extends Controller
         $user = $request->user();
 
         return response()->json([
+            // Sertakan nomor_izin (bukan seluruh relasi permit) agar tampilan
+            // notifikasi bisa menampilkan judul "Izin {nomor_izin}" secara
+            // konsisten tanpa mem-parsing teks pesan.
             'data'         => Notification::where('user_id', $user->id)
+                ->with('permit:id,nomor_izin')
                 ->latest('id')->limit(50)->get(),
             'unread_count' => Notification::where('user_id', $user->id)
                 ->where('dibaca', false)->count(),

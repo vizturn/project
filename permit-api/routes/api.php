@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\LiveAuditController;
 use App\Http\Controllers\Api\MasterDataController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PermitController;
+use App\Http\Controllers\Api\PermitDailyLogController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ScreeningController;
 use App\Http\Controllers\Api\ScreeningCriteriaController;
@@ -151,6 +152,10 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
         Route::get('/audit-logs/export', [AuditLogController::class, 'export']);
         Route::get('/reports/summary', [ReportController::class, 'summary']);
+        // Log izin harian — izin yang masuk per rentang tanggal (hari ini/1 minggu/1 bulan),
+        // beserta PA yang mengajukan & AA/IA yang dituju menerima.
+        Route::get('/permit-logs', [PermitDailyLogController::class, 'index']);
+        Route::get('/permit-logs/export', [PermitDailyLogController::class, 'export']);
     });
 
     /* ===== Contoh route RBAC ===== */

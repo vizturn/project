@@ -1,27 +1,32 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useNotifications } from "../context/NotificationContext";
 import {
   LayoutDashboard, ClipboardList, FileText, KanbanSquare,
-  Bell, ScrollText, BarChart3, ShieldCheck, LogOut, UserCircle2, UserCheck,
+  Bell, ScrollText, CalendarClock, BarChart3, LogOut, UserCircle2, UserCheck,
 } from "lucide-react";
 
 // Definisi menu. `roles` kosong/undefined = tampil untuk semua peran.
 // Kalau diisi, hanya peran tsb yang melihat menu ini (mengikuti RoleRoute di router).
+// `hideForRoles` = kebalikannya: peran yang disebut TIDAK melihat menu ini
+// meski peran lain yang memenuhi `roles` tetap melihatnya.
 const MENU = [
   { to: "/dashboard",     label: "Dashboard",    icon: LayoutDashboard },
-  { to: "/screening",     label: "Penapisan",    icon: ClipboardList },
+  { to: "/screening",     label: "Penapisan",    icon: ClipboardList, hideForRoles: ["SHE", "ADM", "AA", "IA"] },
   { to: "/screening/new", label: "Buat Penapisan", icon: ClipboardList, roles: ["PA"] },
-  { to: "/permits",       label: "Daftar Izin",  icon: FileText },
+  { to: "/permits",       label: "Daftar Izin",  icon: FileText, hideForRoles: ["SHE", "ADM"] },
   { to: "/board",         label: "Papan Izin",   icon: KanbanSquare },
   { to: "/notifications", label: "Notifikasi",   icon: Bell },
   { to: "/audit-logs",    label: "Audit Log",    icon: ScrollText, roles: ["SHE", "ADM"] },
-  { to: "/reports",       label: "Laporan",      icon: BarChart3,  roles: ["SHE", "ADM"] },
+  { to: "/permit-logs",   label: "Log Izin Harian", icon: CalendarClock, roles: ["SHE", "ADM"], hideForRoles: ["ADM"] },
+  { to: "/reports",       label: "Laporan",      icon: BarChart3,  roles: ["SHE", "ADM"], hideForRoles: ["SHE", "ADM"] },
   { to: "/accounts/approval", label: "Persetujuan Akun", icon: UserCheck, roles: ["SHE"] },
   { to: "/accounts/manage", label: "Kelola Akun", icon: UserCircle2, roles: ["ADM"] },
 ];
 
 export default function Sidebar() {
   const { user, hasRole, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
 
   const doLogout = async () => {
@@ -29,16 +34,20 @@ export default function Sidebar() {
     navigate("/login", { replace: true });
   };
 
-  const menuTampil = MENU.filter((m) => !m.roles || hasRole(...m.roles));
+  const menuTampil = MENU.filter((m) => {
+    if (m.roles && !hasRole(...m.roles)) return false;
+    if (m.hideForRoles && hasRole(...m.hideForRoles)) return false;
+    return true;
+  });
 
   return (
     <aside className="w-60 shrink-0 bg-white border-r border-slate-200 min-h-screen flex flex-col">
       {/* Header */}
       <div className="px-5 py-5 flex items-center gap-2 border-b border-slate-100">
-        <ShieldCheck className="text-emerald-600" size={24} />
+        <img src="/emp-logo.png" alt="EMP" className="h-8 w-auto block" />
         <div className="leading-tight">
-          <p className="font-bold text-slate-800 text-sm">Digital Permit SHE</p>
-          <p className="text-[11px] text-slate-400">Oil &amp; Gas Operations</p>
+          <p className="font-bold text-slate-800 text-sm">Bentu Limited</p>
+          <p className="text-[11px] text-slate-400">Korinci Baru</p>
         </div>
       </div>
 
@@ -58,7 +67,12 @@ export default function Sidebar() {
             }
           >
             <Icon size={18} />
-            {label}
+            <span className="flex-1">{label}</span>
+            {to === "/notifications" && unreadCount > 0 && (
+              <span className="min-w-[20px] h-5 px-1.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

@@ -16,3 +16,10 @@ export const getSummary = (from, to) => {
   if (to) params.to = to;
   return api.get("/reports/summary", { params });
 };
+
+// filter: { tanggal_mulai, tanggal_selesai } — default hari ini bila kosong (lihat backend)
+export const getPermitLogs = (filter = {}) => api.get("/permit-logs", { params: filter });
+
+// Export log izin harian ke CSV (download file). Mengembalikan blob.
+export const exportPermitLogs = (filter = {}) =>
+  api.get("/permit-logs/export", { params: filter, responseType: "blob" });

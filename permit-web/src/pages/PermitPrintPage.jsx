@@ -212,11 +212,11 @@ export default function PermitPrintPage() {
             <tr>
               <td style={{ width: "33%" }}><span className="lbl">Tanggal diminta</span><span className="val">{fmtTgl(permit.created_at)}</span></td>
               <td style={{ width: "34%" }}><span className="lbl">Diminta oleh (nama & ttd)</span><span className="val">{permit.performing_authority?.name ?? ""}</span></td>
-              <td><span className="lbl">Lead / Supervisor (nama & ttd)</span><span className="val"></span></td>
+              <td><span className="lbl">Lead / Supervisor (nama & ttd)</span><span className="val">{permit.lead_supervisor ?? ""}</span></td>
             </tr>
             <tr>
               <td><span className="lbl">Lokasi Pekerjaan</span><span className="val">{permit.lokasi ?? ""}</span></td>
-              <td><span className="lbl">Equipment ID</span><span className="val"></span></td>
+              <td><span className="lbl">Equipment ID</span><span className="val">{permit.referensi_peralatan ?? ""}</span></td>
               <td><span className="lbl">Lamanya pengerjaan (estimasi)</span><span className="val">{permit.durasi ? `${permit.durasi} jam` : ""}</span></td>
             </tr>
             <tr>
@@ -225,7 +225,7 @@ export default function PermitPrintPage() {
                 <div style={{ fontSize: 8, color: "#666", marginTop: 4 }}>PTW disetujui. Pekerjaan dapat dimulai setelah penerbitan oleh IA</div></td>
             </tr>
             <tr>
-              <td><span className="lbl">Reference WO</span><span className="val"></span></td>
+              <td><span className="lbl">Reference WO</span><span className="val">{permit.referensi_wo ?? ""}</span></td>
               <td colSpan={2}><span className="lbl">Reference PTW</span><span className="val"></span></td>
             </tr>
           </tbody>
@@ -383,22 +383,22 @@ export default function PermitPrintPage() {
               <td>Pengujian Lanjutan</td>
             </tr>
             {[
-              ["Oksigen", "19.5% - 23.5%", "oksigen"],
-              ["%LEL", "<10%", "lel"],
+              ["Oksigen", "19.5% - 23.5%", "oksigen_persen"],
+              ["%LEL", "<10%", "lel_persen"],
               ["Karbon Monoksida", "< 35 ppm (8 jam)", "co_ppm"],
-              ["Hidrogen Sulfida", "< 10 ppm (8 jam)", "h2s"],
+              ["Hidrogen Sulfida", "< 10 ppm (8 jam)", "h2s_ppm"],
             ].map(([nama, batas, field]) => (
               <tr key={field}>
                 <td style={{ fontWeight: 700, fontSize: 9 }}>{nama}</td>
                 <td style={{ fontSize: 9 }}>{batas}</td>
                 <td>{gasAwal[0]?.[field] ?? ""}</td>
-                <td>{gasLanjutan.map((g) => g[field]).filter(Boolean).join(" · ")}</td>
+                <td>{gasLanjutan.map((g) => g[field]).filter((v) => v !== null && v !== undefined && v !== "").join(" · ")}</td>
               </tr>
             ))}
             <tr>
               <td style={{ fontWeight: 700, fontSize: 9 }}>Petugas AGT</td>
               <td colSpan={3} style={{ fontSize: 9 }}>
-                Nama: {(permit.gas_tests || []).map((g) => g.agt?.name).filter(Boolean).join(", ") || ""}
+                Nama: {[...new Set((permit.gas_tests || []).map((g) => g.agt?.name).filter(Boolean))].join(", ") || ""}
               </td>
             </tr>
             <tr>
@@ -469,6 +469,38 @@ export default function PermitPrintPage() {
               <td colSpan={2} style={{ fontSize: 9 }}>
                 <b>Jika menggunakan perancah, PA melampirkan Scaffolding Certificate</b>
                 {"  "}<span style={{ color: "#555" }}>(nomor)</span>: {permit.wah_scaffolding_cert_nomor ?? ""}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Pengujian Kadar Gas (WAH) — muncul bila IA/AGT mencatat hasil uji gas pada izin ini */}
+        <div className="sec">4. Pengujian Kadar Gas <small>(dilaksanakan oleh IA atau Authorized Gas Tester - AGT)</small></div>
+        <table className="tbl">
+          <tbody>
+            <tr style={{ fontSize: 8, color: "#555", fontWeight: 700, background: "#f3f3f3", textAlign: "center" }}>
+              <td style={{ width: "22%" }}>Kadar Gas Diuji</td>
+              <td style={{ width: "22%" }}>Batasan yang diizinkan</td>
+              <td>Hasil Pengujian Awal</td>
+              <td>Pengujian Lanjutan</td>
+            </tr>
+            {[
+              ["Oksigen", "19.5% - 23.5%", "oksigen_persen"],
+              ["%LEL", "<10%", "lel_persen"],
+              ["Karbon Monoksida", "< 35 ppm (8 jam)", "co_ppm"],
+              ["Hidrogen Sulfida", "< 10 ppm (8 jam)", "h2s_ppm"],
+            ].map(([nama, batas, field]) => (
+              <tr key={field}>
+                <td style={{ fontWeight: 700, fontSize: 9 }}>{nama}</td>
+                <td style={{ fontSize: 9 }}>{batas}</td>
+                <td>{gasAwal[0]?.[field] ?? ""}</td>
+                <td>{gasLanjutan.map((g) => g[field]).filter((v) => v !== null && v !== undefined && v !== "").join(" · ")}</td>
+              </tr>
+            ))}
+            <tr>
+              <td style={{ fontWeight: 700, fontSize: 9 }}>Petugas AGT</td>
+              <td colSpan={3} style={{ fontSize: 9 }}>
+                Nama: {[...new Set((permit.gas_tests || []).map((g) => g.agt?.name).filter(Boolean))].join(", ") || ""}
               </td>
             </tr>
           </tbody>

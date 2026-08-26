@@ -4,9 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { getMySummary } from "../services/reportService";
 import { statusLabel } from "../lib/status";
+import NotificationBell from "../components/NotificationBell";
 import {
   CheckCircle2, Clock, AlertTriangle, FileStack,
-  ClipboardCheck, Plus, ArrowRight, Timer,
+  Plus, ArrowRight, Timer,
 } from "lucide-react";
 
 const LABEL_PERAN = {
@@ -91,18 +92,13 @@ export default function DashboardPage() {
             )}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <NotificationBell />
           {hasRole("PA") && (
-            <>
-              <button onClick={() => navigate("/screening/new")}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                <ClipboardCheck size={16} /> Penapisan
-              </button>
-              <button onClick={() => navigate("/permits/new")}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-dark">
-                <Plus size={16} /> Izin Baru
-              </button>
-            </>
+            <button onClick={() => navigate("/permits/new")}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-dark">
+              <Plus size={16} /> Izin Baru
+            </button>
           )}
         </div>
       </div>

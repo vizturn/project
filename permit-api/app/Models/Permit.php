@@ -25,6 +25,11 @@ class Permit extends Model
         'referensi_wo',
         'referensi_peralatan',
         'lead_supervisor',
+        // Bukti persetujuan langsung dari Lead/Supervisor (mis. tangkapan layar
+        // WhatsApp) yang diunggah PA saat membuat/mengubah izin. Dapat dilihat
+        // AA & IA (dan siapa pun yang membuka detail izin) sebagai pendukung.
+        'bukti_persetujuan_nama',
+        'bukti_persetujuan_file_path',
         'performing_authority_id',
         'approval_authority_id',
         'issuing_authority_id',

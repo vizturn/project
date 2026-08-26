@@ -3,8 +3,41 @@ import api from "./api";
 export const getPermits = (scope) =>
   api.get("/permits", { params: scope ? { scope } : {} });
 export const getPermit = (id) => api.get(`/permits/${id}`);
-export const createPermit = (payload) => api.post("/permits", payload);
-export const updatePermit = (id, payload) => api.put(`/permits/${id}`, payload);
+
+/**
+ * payload -> FormData. Dipakai createPermit & updatePermit karena keduanya
+ * kini bisa menyertakan file (bukti_persetujuan_file). permit_type_ids (array)
+ * perlu ditulis sebagai "permit_type_ids[]" agar Laravel membacanya sebagai array;
+ * key file (bukti_persetujuan_file) hanya disertakan bila memang ada File baru.
+ */
+function buildPermitFormData(payload) {
+  const fd = new FormData();
+  Object.entries(payload).forEach(([key, value]) => {
+    if (key === "permit_type_ids") {
+      (value || []).forEach((v) => fd.append("permit_type_ids[]", v));
+      return;
+    }
+    if (key === "bukti_persetujuan_file") {
+      if (value instanceof File) fd.append(key, value);
+      return;
+    }
+    if (value === null || value === undefined) return;
+    fd.append(key, value);
+  });
+  return fd;
+}
+
+export const createPermit = (payload) =>
+  api.post("/permits", buildPermitFormData(payload));
+
+// PUT + FormData tidak bisa dibaca PHP ($_FILES kosong pada request PUT asli),
+// jadi dikirim sebagai POST dengan _method=PUT (method spoofing bawaan Laravel).
+// Route tetap PUT (routes/api.php tidak berubah).
+export const updatePermit = (id, payload) => {
+  const fd = buildPermitFormData(payload);
+  fd.append("_method", "PUT");
+  return api.post(`/permits/${id}`, fd);
+};
 export const submitPermit = (id) => api.post(`/permits/${id}/submit`);
 // psb: [{ permit_type_id, psb_type_ids: [...] }, ...]
 export const approvePermit = (id, psb) =>
@@ -21,6 +54,8 @@ export const addGasTest = (id, payload) => api.post(`/permits/${id}/gas-tests`, 
 // uji gas. Dipakai langsung sebagai href/src — tidak butuh token.
 const STORAGE_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/api\/?$/, "") + "/storage/";
 export const gasTestFileUrl = (path) => (path ? STORAGE_BASE_URL + path : null);
+// URL publik foto bukti persetujuan Lead/Supervisor (dilihat AA & IA di detail izin).
+export const buktiPersetujuanFileUrl = (path) => (path ? STORAGE_BASE_URL + path : null);
 // Bagian 8 — Pengembalian: PA menuliskan tanggal & jam pengembalian.
 export const returnPermit = (id, payload) => api.post(`/permits/${id}/return`, payload);
 // Bagian 8 — Revalidasi: IA boleh mengoreksi tanggal & jam sebelum konfirmasi.

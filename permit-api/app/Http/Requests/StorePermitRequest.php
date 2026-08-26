@@ -25,6 +25,12 @@ class StorePermitRequest extends FormRequest
             'referensi_wo'           => ['nullable', 'string', 'max:100'],
             'referensi_peralatan'    => ['nullable', 'string', 'max:150'],
             'lead_supervisor'        => ['nullable', 'string', 'max:150'],
+            // Bukti persetujuan Lead/Supervisor (opsional saat pengajuan pertama,
+            // tapi bisa dilengkapi/diganti nanti selama izin masih draft — lihat
+            // UpdatePermitRequest). Format gambar umum, maks 5 MB, sama seperti
+            // dokumentasi foto uji gas (StoreGasTestRequest::foto).
+            'bukti_persetujuan_nama' => ['nullable', 'string', 'max:150'],
+            'bukti_persetujuan_file' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'lokasi'                => ['required', 'string', 'max:150'],
             'deskripsi_pekerjaan'   => ['required', 'string'],
             'durasi'                => ['required', 'integer', 'min:1', 'max:72'],

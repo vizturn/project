@@ -15,6 +15,7 @@ import PermitPrintPage from "../pages/PermitPrintPage";
 import BoardPage from "../pages/BoardPage";
 import NotificationsPage from "../pages/NotificationsPage";
 import AuditLogPage from "../pages/AuditLogPage";
+import PermitDailyLogPage from "../pages/PermitDailyLogPage";
 import ReportPage from "../pages/ReportPage";
 import ProfilePage from "../pages/ProfilePage";
 import AccountApprovalPage from "../pages/AccountApprovalPage";
@@ -28,7 +29,11 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       // Lembar cetak PTW — di luar AppLayout (tanpa sidebar) agar bersih untuk print.
-      { path: "/permits/:id/print", element: <PermitPrintPage /> },
+      // Hanya PA yang boleh mencetak.
+      {
+        element: <RoleRoute allow={["PA"]} />,
+        children: [{ path: "/permits/:id/print", element: <PermitPrintPage /> }],
+      },
       {
         // Semua halaman ter-proteksi dibungkus AppLayout → dapat sidebar otomatis.
         element: <AppLayout />,
@@ -61,6 +66,7 @@ export const router = createBrowserRouter([
             element: <RoleRoute allow={["SHE", "ADM"]} />,
             children: [
               { path: "/audit-logs", element: <AuditLogPage /> },
+              { path: "/permit-logs", element: <PermitDailyLogPage /> },
               { path: "/reports", element: <ReportPage /> },
             ],
           },

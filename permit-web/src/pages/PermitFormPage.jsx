@@ -3,9 +3,9 @@ import Button from "../components/Button";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { getPermitTypes } from "../services/masterService";
 import { getUsersByRole } from "../services/userService";
-import { createPermit, updatePermit, getPermit } from "../services/permitService";
+import { createPermit, updatePermit, getPermit, buktiPersetujuanFileUrl } from "../services/permitService";
 import { toast } from "sonner";
-import { FilePlus2, PencilLine, ArrowLeft } from "lucide-react";
+import { FilePlus2, PencilLine, ArrowLeft, ImagePlus } from "lucide-react";
 
 // Warna penanda jenis izin (seragam dengan dashboard, daftar izin, dan lembar cetak).
 const WARNA_JENIS = { HWP: "#b91c1c", CWP: "#1d4ed8", CSE: "#c2410c", WAH: "#475569" };
@@ -31,9 +31,23 @@ export default function PermitFormPage() {
     referensi_peralatan: "",
     approval_authority_id: "",
     issuing_authority_id: "",
+    bukti_persetujuan_nama: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Bukti persetujuan Lead/Supervisor (foto) — opsional. `buktiFile` = file
+  // baru yang dipilih PA (belum diunggah); `buktiFileLamaUrl` = foto yang
+  // sudah tersimpan (mode edit), ditampilkan sebagai preview bila belum
+  // diganti. Dilihat oleh AA & IA di halaman detail izin.
+  const [buktiFile, setBuktiFile] = useState(null);
+  const [buktiPreview, setBuktiPreview] = useState(null);
+  const [buktiFileLamaUrl, setBuktiFileLamaUrl] = useState(null);
+
+  const pilihBuktiFile = (file) => {
+    setBuktiFile(file || null);
+    setBuktiPreview(file ? URL.createObjectURL(file) : null);
+  };
 
   useEffect(() => {
     const masters = Promise.all([
@@ -71,7 +85,9 @@ export default function PermitFormPage() {
             referensi_peralatan: p.referensi_peralatan ?? "",
             approval_authority_id: p.approval_authority_id ?? "",
             issuing_authority_id: p.issuing_authority_id ?? "",
+            bukti_persetujuan_nama: p.bukti_persetujuan_nama ?? "",
           });
+          setBuktiFileLamaUrl(buktiPersetujuanFileUrl(p.bukti_persetujuan_file_path));
 
           // Centang jenis izin yang sudah ada (dari relasi permitTypes).
           const centang = {};
@@ -121,6 +137,10 @@ export default function PermitFormPage() {
         issuing_authority_id: Number(form.issuing_authority_id),
         referensi_wo: form.referensi_wo || null,
         referensi_peralatan: form.referensi_peralatan || null,
+        bukti_persetujuan_nama: form.bukti_persetujuan_nama || null,
+        // Hanya disertakan bila PA memilih file baru; kalau tidak, backend
+        // mempertahankan file lama (mode edit) atau tetap kosong (mode create).
+        bukti_persetujuan_file: buktiFile,
         // Opsi A: saat edit kirim screening lama; saat create pakai dari query param.
         screening_id: isEdit
           ? existingScreeningId
@@ -236,6 +256,55 @@ export default function PermitFormPage() {
               <label className={kelasLabel}>Nama Lead/Supervisor</label>
               <input value={form.lead_supervisor} onChange={(e) => setField("lead_supervisor", e.target.value)}
                 className={kelasInput} placeholder="Penanggung jawab pekerjaan" />
+            </div>
+          </div>
+
+          {/* Bukti persetujuan Lead/Supervisor (foto) — opsional. Bisa dilihat AA & IA di detail izin. */}
+          <div className="mt-4">
+            <label className={kelasLabel}>Bukti Persetujuan Supervisor</label>
+            <p className="text-xs text-slate-400 mb-2">
+              Opsional. Mis. tangkapan layar percakapan WhatsApp berisi persetujuan lisan Lead/Supervisor.
+              Foto ini akan terlihat oleh Approval Authority (AA) dan Issuing Authority (IA).
+            </p>
+            <div className="flex items-start gap-3">
+              <label
+                htmlFor="bukti-persetujuan-input"
+                className="flex flex-col items-center justify-center w-28 h-28 shrink-0 rounded-lg border-2 border-dashed border-slate-300 text-slate-400 hover:border-brand hover:text-brand cursor-pointer overflow-hidden"
+              >
+                {buktiPreview || buktiFileLamaUrl ? (
+                  <img
+                    src={buktiPreview || buktiFileLamaUrl}
+                    alt="Pratinjau bukti persetujuan"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <>
+                    <ImagePlus size={22} />
+                    <span className="text-[10px] mt-1">Unggah Foto</span>
+                  </>
+                )}
+                <input
+                  id="bukti-persetujuan-input"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => pilihBuktiFile(e.target.files?.[0] ?? null)}
+                />
+              </label>
+              <div className="flex-1">
+                <label className={kelasLabel}>Keterangan (opsional)</label>
+                <input
+                  value={form.bukti_persetujuan_nama}
+                  onChange={(e) => setField("bukti_persetujuan_nama", e.target.value)}
+                  className={kelasInput}
+                  placeholder="Mis. Screenshot chat WA dengan Bpk. Andi, 21 Agustus 2026"
+                />
+                {buktiFileLamaUrl && !buktiFile && (
+                  <p className="text-xs text-slate-400 mt-1.5">
+                    Sudah ada foto tersimpan. Pilih foto baru di atas untuk menggantinya.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
